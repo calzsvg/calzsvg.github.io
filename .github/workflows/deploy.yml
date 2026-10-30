@@ -35,6 +35,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/configure-pages@v5
+      # Stamp this build's commit on asset URLs (busts the 10-min Pages cache) and
+      # publish it in version.txt so open/cached pages can tell a newer build is live.
+      - run: |
+          v="${GITHUB_SHA::7}"
+          echo "$v" > version.txt
+          sed -i "s/__BUILD__/$v/g" *.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
