@@ -285,11 +285,24 @@
   // ---------- Drones: a quadcopter surveys the ground, detecting objects under its camera; it follows the cursor ----------
   function drone(W, H) {
     const pad = 22, fov = Math.min(W, H) * 0.34, arm = Math.min(W, H) * 0.085;
+    const STRIKE_S = 0.28, LOCK_R = 26;
     const objects = [];
-    for (let i = 0; i < 14; i++) {
+    // (Re)place a target at a random spot; `born` drives its fade-in.
+    const place = (o, t) => {
       const s = rand(7, 14);
-      objects.push({ x: rand(pad, W - pad), y: rand(pad, H - pad), w: s * rand(1, 1.6), h: s, seen: -9 });
-    }
+      Object.assign(o, { x: rand(pad, W - pad), y: rand(pad, H - pad), w: s * rand(1, 1.6), h: s, seen: -9, born: t, alive: true, locked: false });
+    };
+    for (let i = 0; i < 14; i++) { const o = {}; place(o, -9); objects.push(o); }
+    let strikes = [], booms = [];
+    const nearestTarget = (x, y) => {
+      let best = null, bd = LOCK_R;
+      for (const o of objects) {
+        if (!o.alive || o.locked) continue;
+        const dist = Math.hypot(o.x - x, o.y - y) - Math.max(o.w, o.h) / 2;
+        if (dist < bd) { bd = dist; best = o; }
+      }
+      return best;
+    };
     // Idle flight: a lawnmower survey pattern over the field.
     const rows = 3, path = [];
     for (let r = 0; r < rows; r++) {
@@ -303,7 +316,34 @@
     const trail = [];
 
     return {
+      // Click a target: the drone fires a round at it, it explodes, and respawns elsewhere a few seconds later.
+      click(x, y, t) {
+        const o = nearestTarget(x, y);
+        if (!o) return;
+        o.locked = true;
+        strikes.push({ o, x0: d.x, y0: d.y, t0: t });
+      },
       step(dt, t, m) {
+        for (const s of strikes) {
+          if (t - s.t0 < STRIKE_S) continue;
+          s.done = true;
+          s.o.alive = false;
+          s.o.respawnAt = t + rand(3, 5);
+          const parts = [];
+          for (let i = 0; i < 22; i++) {
+            const a = rand(0, Math.PI * 2), v = rand(40, 160);
+            parts.push({ x: s.o.x, y: s.o.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, s: rand(1, 2.6) });
+          }
+          booms.push({ x: s.o.x, y: s.o.y, t0: t, parts });
+        }
+        strikes = strikes.filter((s) => !s.done);
+        for (const b of booms) for (const p of b.parts) {
+          p.x += p.vx * dt; p.y += p.vy * dt;
+          p.vx *= 1 - 3 * dt; p.vy *= 1 - 3 * dt;
+        }
+        booms = booms.filter((b) => t - b.t0 < 3);
+        for (const o of objects) if (!o.alive && t >= o.respawnAt) place(o, t);
+
         let tx, ty;
         if (m.inside) { tx = m.x; ty = m.y; }
         else {
@@ -331,7 +371,7 @@
           if (Math.abs(o.x - d.x) < fov / 2 && Math.abs(o.y - d.y) < fov / 2) o.seen = t;
         }
       },
-      draw(ctx, t) {
+      draw(ctx, t, m) {
         // Ground grid.
         ctx.strokeStyle = blue(0.07);
         ctx.lineWidth = 1;
@@ -340,14 +380,27 @@
         for (let y = 0; y < H; y += 24) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); }
         ctx.stroke();
 
-        // Objects on the ground, with a detection box while (and shortly after) in view.
+        // Scorch marks left by explosions.
+        for (const b of booms) {
+          ctx.fillStyle = `rgba(4,10,20,${0.5 * clamp(1 - (t - b.t0) / 3, 0, 1)})`;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 14, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Targets on the ground, with a detection box while (and shortly after) in view.
+        // The one under the cursor (or already struck) is marked in orange.
+        const hovered = m.inside ? nearestTarget(m.x, m.y) : null;
         for (const o of objects) {
-          ctx.fillStyle = blue(0.35);
+          if (!o.alive) continue;
+          const fadeIn = clamp((t - o.born) / 0.6, 0, 1);
+          ctx.fillStyle = blue(0.35 * fadeIn);
           ctx.fillRect(o.x - o.w / 2, o.y - o.h / 2, o.w, o.h);
-          const a = clamp(1 - (t - o.seen) / 1.5, 0, 1);
+          const marked = o.locked || o === hovered;
+          const a = marked ? 1 : clamp(1 - (t - o.seen) / 1.5, 0, 1) * fadeIn;
           if (a <= 0) continue;
           const x0 = o.x - o.w / 2 - 4, y0 = o.y - o.h / 2 - 4, x1 = o.x + o.w / 2 + 4, y1 = o.y + o.h / 2 + 4, c = 5;
-          ctx.strokeStyle = cyan(a);
+          ctx.strokeStyle = marked ? warn(a) : cyan(a);
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(x0, y0 + c); ctx.lineTo(x0, y0); ctx.lineTo(x0 + c, y0);
@@ -355,6 +408,21 @@
           ctx.moveTo(x1, y1 - c); ctx.lineTo(x1, y1); ctx.lineTo(x1 - c, y1);
           ctx.moveTo(x0 + c, y1); ctx.lineTo(x0, y1); ctx.lineTo(x0, y1 - c);
           ctx.stroke();
+        }
+
+        // Rounds in flight from the drone to their target.
+        for (const s of strikes) {
+          const k = clamp((t - s.t0) / STRIKE_S, 0, 1);
+          const x = s.x0 + (s.o.x - s.x0) * k, y = s.y0 + (s.o.y - s.y0) * k;
+          const kt = Math.max(0, k - 0.25);
+          ctx.strokeStyle = warn(0.7);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(s.x0 + (s.o.x - s.x0) * kt, s.y0 + (s.o.y - s.y0) * kt);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255,240,200,1)";
+          ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
         }
 
         // Flight trail.
@@ -407,6 +475,36 @@
         ctx.arc(arm * 0.35, 0, 2, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+
+        // Explosions on top of everything (the drone often hovers right over its target):
+        // a bright flash, an expanding shockwave ring and flying debris.
+        for (const b of booms) {
+          const age = t - b.t0;
+          const flash = clamp(1 - age / 0.35, 0, 1);
+          if (flash > 0) {
+            const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 10 + age * 60);
+            g.addColorStop(0, `rgba(255,240,200,${flash})`);
+            g.addColorStop(0.4, warn(0.8 * flash));
+            g.addColorStop(1, warn(0));
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 10 + age * 60, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          const ring = clamp(1 - age / 0.8, 0, 1);
+          if (ring > 0) {
+            ctx.strokeStyle = `rgba(255,200,150,${0.7 * ring})`;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 6 + (1 - ring) * 44, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          const debris = clamp(1 - age / 1.1, 0, 1);
+          if (debris > 0) {
+            ctx.fillStyle = warn(debris);
+            for (const p of b.parts) ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+          }
+        }
       },
     };
   }
@@ -612,6 +710,12 @@
       m.inside = true;
     });
     canvas.addEventListener("pointerleave", () => { m.inside = false; m.x = m.y = -1e4; });
+    canvas.addEventListener("click", (ev) => {
+      if (!anim.click) return;
+      const r = canvas.getBoundingClientRect();
+      // Use the animation clock (last frame time) so click-spawned effects line up with step().
+      anim.click(ev.clientX - r.left, ev.clientY - r.top, last || performance.now() / 1000);
+    });
 
     let resizeTimer;
     window.addEventListener("resize", () => {
