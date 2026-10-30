@@ -60,7 +60,7 @@ window.AISL = {
     {
       title: "Drones",
       anim: "drone",
-      featured: false,
+      featured: true,
       image: "",
       summary:
         "We develop on-board AI for drones (UAVs) — real-time perception, navigation, and control " +
