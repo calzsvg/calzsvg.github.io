@@ -179,7 +179,9 @@
 
     // Wave fronts.
     for (const w of waves) {
-      const r = (time - w.start) * WAVE_SPEED;
+      // A click's timestamp can be later than the next frame's, and arc() throws on a
+      // negative radius — which used to kill the loop and leave the canvas blank.
+      const r = Math.max(0, (time - w.start) * WAVE_SPEED);
       const a = clamp(1 - r / (Math.hypot(W, H) * 0.8), 0, 1);
       ctx.lineWidth = 1;
       ctx.strokeStyle = w.restore ? `rgba(142,234,255,${a * 0.15})` : `rgba(190,220,255,${a * 0.15})`;
