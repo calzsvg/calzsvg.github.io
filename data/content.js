@@ -24,7 +24,7 @@ window.AISL = {
   ],
 
   // Projects shown on Home (featured: true) and on the Research page.
-  // `anim` picks an interactive animation (mtp | memory | driving | compression | optimization),
+  // `anim` picks an interactive animation (mtp | memory | driving | drone | compression | optimization),
   // shown when `image` is empty.
   research: [
     {
@@ -55,6 +55,16 @@ window.AISL = {
       summary:
         "We build perception and decision-making models for autonomous vehicles that run in real time " +
         "on resource-constrained onboard hardware.",
+      link: "",
+    },
+    {
+      title: "Drones",
+      anim: "drone",
+      featured: false,
+      image: "",
+      summary:
+        "We develop on-board AI for drones (UAVs) — real-time perception, navigation, and control " +
+        "that run within the tight compute, memory, and power budgets of small aerial platforms.",
       link: "",
     },
     {

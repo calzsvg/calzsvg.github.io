@@ -282,6 +282,135 @@
     };
   }
 
+  // ---------- Drones: a quadcopter surveys the ground, detecting objects under its camera; it follows the cursor ----------
+  function drone(W, H) {
+    const pad = 22, fov = Math.min(W, H) * 0.34, arm = Math.min(W, H) * 0.085;
+    const objects = [];
+    for (let i = 0; i < 14; i++) {
+      const s = rand(7, 14);
+      objects.push({ x: rand(pad, W - pad), y: rand(pad, H - pad), w: s * rand(1, 1.6), h: s, seen: -9 });
+    }
+    // Idle flight: a lawnmower survey pattern over the field.
+    const rows = 3, path = [];
+    for (let r = 0; r < rows; r++) {
+      const y = pad + fov / 2 + ((H - pad * 2 - fov) * r) / (rows - 1);
+      const xs = [pad + fov / 2, W - pad - fov / 2];
+      if (r % 2) xs.reverse();
+      path.push({ x: xs[0], y }, { x: xs[1], y });
+    }
+    const d = { x: path[0].x, y: path[0].y, vx: 0, vy: 0, heading: 0 };
+    let wp = 1, spin = 0;
+    const trail = [];
+
+    return {
+      step(dt, t, m) {
+        let tx, ty;
+        if (m.inside) { tx = m.x; ty = m.y; }
+        else {
+          tx = path[wp].x; ty = path[wp].y;
+          if (Math.hypot(tx - d.x, ty - d.y) < 8) wp = (wp + 1) % path.length;
+        }
+        // Simple spring-damper so the drone accelerates, overshoots slightly and settles.
+        const k = m.inside ? 14 : 5, damp = m.inside ? 6 : 3.2, vmax = m.inside ? 260 : 70;
+        d.vx += ((tx - d.x) * k - d.vx * damp) * dt;
+        d.vy += ((ty - d.y) * k - d.vy * damp) * dt;
+        const v = Math.hypot(d.vx, d.vy);
+        if (v > vmax) { d.vx *= vmax / v; d.vy *= vmax / v; }
+        d.x = clamp(d.x + d.vx * dt, 0, W);
+        d.y = clamp(d.y + d.vy * dt, 0, H);
+        if (v > 8) {
+          const target = Math.atan2(d.vy, d.vx);
+          let diff = target - d.heading;
+          diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+          d.heading += diff * ease(dt, 4);
+        }
+        spin += dt * 40;
+        trail.push([d.x, d.y]);
+        if (trail.length > 90) trail.shift();
+        for (const o of objects) {
+          if (Math.abs(o.x - d.x) < fov / 2 && Math.abs(o.y - d.y) < fov / 2) o.seen = t;
+        }
+      },
+      draw(ctx, t) {
+        // Ground grid.
+        ctx.strokeStyle = blue(0.07);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 0; x < W; x += 24) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, H); }
+        for (let y = 0; y < H; y += 24) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); }
+        ctx.stroke();
+
+        // Objects on the ground, with a detection box while (and shortly after) in view.
+        for (const o of objects) {
+          ctx.fillStyle = blue(0.35);
+          ctx.fillRect(o.x - o.w / 2, o.y - o.h / 2, o.w, o.h);
+          const a = clamp(1 - (t - o.seen) / 1.5, 0, 1);
+          if (a <= 0) continue;
+          const x0 = o.x - o.w / 2 - 4, y0 = o.y - o.h / 2 - 4, x1 = o.x + o.w / 2 + 4, y1 = o.y + o.h / 2 + 4, c = 5;
+          ctx.strokeStyle = cyan(a);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x0, y0 + c); ctx.lineTo(x0, y0); ctx.lineTo(x0 + c, y0);
+          ctx.moveTo(x1 - c, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1, y0 + c);
+          ctx.moveTo(x1, y1 - c); ctx.lineTo(x1, y1); ctx.lineTo(x1 - c, y1);
+          ctx.moveTo(x0 + c, y1); ctx.lineTo(x0, y1); ctx.lineTo(x0, y1 - c);
+          ctx.stroke();
+        }
+
+        // Flight trail.
+        ctx.strokeStyle = cyan(0.25);
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath();
+        trail.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Camera footprint.
+        ctx.fillStyle = cyan(0.06);
+        ctx.fillRect(d.x - fov / 2, d.y - fov / 2, fov, fov);
+        ctx.strokeStyle = cyan(0.3);
+        ctx.strokeRect(d.x - fov / 2, d.y - fov / 2, fov, fov);
+
+        // Quadcopter: X frame, four spinning rotors, heading marker.
+        ctx.save();
+        ctx.translate(d.x, d.y);
+        ctx.rotate(d.heading);
+        ctx.strokeStyle = cyan(0.95);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (const s of [Math.PI / 4, -Math.PI / 4]) {
+          ctx.moveTo(-Math.cos(s) * arm, -Math.sin(s) * arm);
+          ctx.lineTo(Math.cos(s) * arm, Math.sin(s) * arm);
+        }
+        ctx.stroke();
+        for (let i = 0; i < 4; i++) {
+          const a = Math.PI / 4 + (i * Math.PI) / 2;
+          const rx = Math.cos(a) * arm, ry = Math.sin(a) * arm, rr = arm * 0.55;
+          ctx.strokeStyle = cyan(0.3);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(rx, ry, rr, 0, Math.PI * 2);
+          ctx.stroke();
+          const sp = spin * (i % 2 ? 1 : -1);
+          ctx.strokeStyle = cyan(0.8);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(rx + Math.cos(sp) * rr, ry + Math.sin(sp) * rr);
+          ctx.lineTo(rx - Math.cos(sp) * rr, ry - Math.sin(sp) * rr);
+          ctx.stroke();
+        }
+        ctx.fillStyle = cyan(0.95);
+        ctx.fillRect(-4, -4, 8, 8);
+        ctx.fillStyle = warn(0.9);
+        ctx.beginPath();
+        ctx.arc(arm * 0.35, 0, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      },
+    };
+  }
+
   // ---------- Model compression: a weight matrix gets quantized to fewer levels around the cursor ----------
   function compression(W, H) {
     const cols = 18, rows = 11, gap = 2, pad = 12, R = Math.min(W, H) * 0.42;
@@ -430,7 +559,7 @@
     };
   }
 
-  const makers = { mtp, memory, driving, compression, optimization };
+  const makers = { mtp, memory, driving, drone, compression, optimization };
 
   // ---------- Driver ----------
   for (const canvas of canvases) {
