@@ -18,10 +18,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
       # Syntax errors in these files would break the site, so stop before deploying.
       - run: |
           for f in data/content.js assets/*.js; do node --check "$f"; done
@@ -33,7 +33,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
