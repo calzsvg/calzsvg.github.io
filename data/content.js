@@ -112,7 +112,7 @@ window.AISL = {
     { name: "남궁길", nameEn: "Gil Namgung", role: "", group: "Undergraduate Researchers", image: "",
       email: "gill1026@hanyang.ac.kr", github: "gill1026", interests: ["Autonomous Driving"] },
     { name: "김윤호", nameEn: "Yunho Kim", role: "", group: "Undergraduate Researchers", image: "",
-      email: "wew303000@hanyang.ac.kr", github: "", interests: ["GPU Architecture", "Real-Time Systems"] }, // GitHub ID 확인 필요 (goldpigg...)
+      email: "wew303000@hanyang.ac.kr", github: "goldpiggg", interests: ["GPU Architecture", "Real-Time Systems"] },
     { name: "김서경", nameEn: "SeoKyoung Kim", role: "", group: "Undergraduate Researchers", image: "",
       email: "sk0829@hanyang.ac.kr", github: "tjrud", interests: ["UAV", "LLM", "Real-Time Systems"] },
   ],
