@@ -1,36 +1,5 @@
 :root {
-  --accent: #0e4a84;       /* Hanyang blue */
-  --accent-soft: #e8eef6;
-  --text: #2b2b2b;
-  --muted: #6b6b6b;
-  --line: #e2e2e2;
-  --band: #f2f2f2;
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --link: #0e4a84;
-  --disabled: #b5b5b5;
-  --max: 1080px;
-  color-scheme: light;
-}
-
-/* Dark mode: follows the OS unless the visitor picked a theme with the header toggle. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --accent: #1e5fa3;
-    --accent-soft: #1d2a3a;
-    --text: #dbe2ea;
-    --muted: #9aa6b2;
-    --line: #26303b;
-    --band: #151b22;
-    --bg: #0f1419;
-    --surface: #151b22;
-    --link: #8cc0f5;
-    --disabled: #55606b;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --accent: #1e5fa3;
+  --accent: #1e5fa3;       /* Hanyang blue, lifted for the dark background */
   --accent-soft: #1d2a3a;
   --text: #dbe2ea;
   --muted: #9aa6b2;
@@ -40,6 +9,7 @@
   --surface: #151b22;
   --link: #8cc0f5;
   --disabled: #55606b;
+  --max: 1080px;
   color-scheme: dark;
 }
 
@@ -64,13 +34,8 @@ a:hover { text-decoration: underline; }
 .header-inner { display: flex; align-items: center; justify-content: space-between; height: 72px; }
 .logo { display: flex; align-items: center; }
 .logo:hover { text-decoration: none; }
-/* The logo file is black on white: multiply drops the white in light mode;
-   in dark mode it is inverted to white on black and screen drops the black. */
-.logo-img { display: block; height: 46px; width: auto; mix-blend-mode: multiply; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .logo-img { filter: invert(1); mix-blend-mode: screen; }
-}
-:root[data-theme="dark"] .logo-img { filter: invert(1); mix-blend-mode: screen; }
+/* The logo file is black on white: invert it to white on black, and screen drops the black. */
+.logo-img { display: block; height: 46px; width: auto; filter: invert(1); mix-blend-mode: screen; }
 .nav { display: flex; }
 .nav a {
   color: var(--text);
@@ -82,12 +47,6 @@ a:hover { text-decoration: underline; }
 .nav a:hover { color: var(--link); text-decoration: none; }
 .header-actions { display: flex; align-items: center; gap: 6px; }
 .nav-toggle { display: none; background: none; border: 0; font-size: 22px; cursor: pointer; color: var(--text); }
-.theme-toggle {
-  margin-left: 12px; width: 34px; height: 34px; border-radius: 50%;
-  border: 1px solid var(--line); background: transparent; color: var(--text);
-  font-size: 16px; line-height: 1; cursor: pointer;
-}
-.theme-toggle:hover { border-color: var(--link); color: var(--link); }
 
 /* ---------- Hero ---------- */
 .hero {

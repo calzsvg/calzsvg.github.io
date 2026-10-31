@@ -37,41 +37,9 @@
         <nav class="nav">
           ${nav.map(([key, label, href]) => `<a href="${href}" class="${key === page ? "active" : ""}">${label}</a>`).join("")}
         </nav>
-        <button class="theme-toggle" aria-label="Toggle dark mode"></button>
         <button class="nav-toggle" aria-label="Menu" aria-expanded="false">☰</button>
       </div>
     </div>`;
-
-  // Theme: follows the device setting. The toggle stores an override only while it
-  // differs from the device; changing the device setting clears the override.
-  const root = document.documentElement;
-  const themeBtn = document.querySelector(".theme-toggle");
-  const systemDark = matchMedia("(prefers-color-scheme: dark)");
-  const isDark = () => (root.dataset.theme ? root.dataset.theme === "dark" : systemDark.matches);
-  const setOverride = (theme) => {
-    try {
-      if (theme) localStorage.setItem("aisl-theme", theme);
-      else localStorage.removeItem("aisl-theme");
-    } catch (e) {}
-    if (theme) root.dataset.theme = theme;
-    else delete root.dataset.theme;
-  };
-  const syncThemeBtn = () => {
-    themeBtn.textContent = isDark() ? "☀" : "☾";
-    themeBtn.title = isDark() ? "Switch to light mode" : "Switch to dark mode";
-  };
-  themeBtn.addEventListener("click", () => {
-    const wantDark = !isDark();
-    setOverride(wantDark === systemDark.matches ? null : wantDark ? "dark" : "light");
-    syncThemeBtn();
-  });
-  systemDark.addEventListener("change", () => {
-    setOverride(null);
-    syncThemeBtn();
-  });
-  // Drop a stale override that now matches the device anyway.
-  if (root.dataset.theme && (root.dataset.theme === "dark") === systemDark.matches) setOverride(null);
-  syncThemeBtn();
 
   const toggle = document.querySelector(".nav-toggle");
   toggle.addEventListener("click", () => {
