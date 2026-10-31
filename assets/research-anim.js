@@ -657,7 +657,413 @@
     };
   }
 
-  const makers = { mtp, memory, driving, drone, compression, optimization };
+  // ---------- LLM acceleration: causal attention fills row by row; hovering switches to sparse attention ----------
+  function llm(W, H) {
+    const n = 16, size = Math.min(H - 24, W - 80), cell = size / n;
+    const ox = (W - size) / 2 + 8, oy = (H - size) / 2;
+    let cells, row, timer, hold;
+    const sparseKeep = (i, j) => i - j <= 2 || j < 2 || j % 5 === 0; // local window + sink tokens + strided
+
+    function reset() {
+      cells = [];
+      for (let i = 0; i < n; i++) {
+        const r = [];
+        for (let j = 0; j <= i; j++) r.push({ w: Math.random() ** 2, shown: 0, done: false, skipped: false });
+        cells.push(r);
+      }
+      row = 0; timer = 0; hold = 0;
+    }
+    reset();
+
+    return {
+      step(dt, t, m) {
+        if (row >= n) {
+          if ((hold += dt) > 1.4) reset();
+        } else if ((timer += dt) > (m.inside ? 0.12 : 0.4)) {
+          // Decode the next token: compute its attention row (fully, or sparsely while hovered).
+          timer = 0;
+          cells[row].forEach((c, j) => {
+            c.done = true;
+            c.skipped = m.inside && !sparseKeep(row, j);
+          });
+          row++;
+        }
+        for (const r of cells) for (const c of r) if (c.done && !c.skipped) c.shown += (1 - c.shown) * ease(dt, 8);
+      },
+      draw(ctx) {
+        const fade = row >= n ? clamp(1 - (hold - 0.8) / 0.6, 0, 1) : 1;
+        for (let i = 0; i < n; i++) {
+          // Query tokens down the left side.
+          ctx.fillStyle = i < row ? cyan(0.8 * fade) : blue(0.15);
+          ctx.fillRect(ox - 14, oy + i * cell + 2, 8, cell - 4);
+          for (let j = 0; j <= i; j++) {
+            const c = cells[i][j], x = ox + j * cell, y = oy + i * cell;
+            if (!c.done) {
+              ctx.fillStyle = blue(0.06);
+              ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+            } else if (c.skipped) {
+              ctx.strokeStyle = blue(0.2 * fade);
+              ctx.strokeRect(x + 1.5, y + 1.5, cell - 3, cell - 3);
+            } else {
+              ctx.fillStyle = cyan((0.15 + 0.85 * c.w) * c.shown * fade);
+              ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+            }
+          }
+        }
+        if (row < n) {
+          ctx.strokeStyle = cyan(0.9);
+          ctx.lineWidth = 1;
+          ctx.strokeRect(ox + 0.5, oy + row * cell + 0.5, (row + 1) * cell - 1, cell - 1);
+        }
+      },
+    };
+  }
+
+  // ---------- GPU architecture: SMs run warps in lockstep; hovering dispatches kernels from the cursor ----------
+  function gpu(W, H) {
+    const cols = 6, rows = 3, pad = 12, gap = 8, top = 30;
+    const smW = (W - pad * 2 - gap * (cols - 1)) / cols, smH = (H - top - pad - gap * (rows - 1)) / rows;
+    const lx = 4, ly = 6; // lanes per SM: ly warps of lx threads
+    const sms = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        sms.push({ x: pad + c * (smW + gap), y: top + r * (smH + gap), act: 0, phase: rand(0, 6.28) });
+      }
+    }
+    let ripples = [], timer = 0, clock = 0, flow = 0;
+    const maxR = Math.hypot(W, H);
+
+    return {
+      step(dt, t, m) {
+        clock += dt;
+        timer += dt;
+        if (m.inside && timer > 0.35) { timer = 0; ripples.push({ x: m.x, y: m.y, t0: clock }); }
+        if (!m.inside && timer > 1.6) {
+          timer = 0;
+          const s = sms[(Math.random() * sms.length) | 0];
+          ripples.push({ x: s.x + smW / 2, y: s.y + smH / 2, t0: clock });
+        }
+        ripples = ripples.filter((r) => (clock - r.t0) * 240 < maxR);
+        let total = 0;
+        for (const s of sms) {
+          s.act = Math.max(0, s.act - dt * 0.9);
+          for (const r of ripples) {
+            const rad = (clock - r.t0) * 240;
+            const d = Math.hypot(s.x + smW / 2 - r.x, s.y + smH / 2 - r.y);
+            if (Math.abs(d - rad) < 22) s.act = Math.max(s.act, 1 - rad / maxR);
+          }
+          total += s.act;
+        }
+        flow += dt * (20 + 160 * (total / sms.length));
+      },
+      draw(ctx) {
+        // Global memory (HBM) bus along the top; traffic speeds up with load.
+        ctx.fillStyle = blue(0.15);
+        ctx.fillRect(pad, 8, W - pad * 2, 10);
+        ctx.strokeStyle = cyan(0.7);
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 10]);
+        ctx.lineDashOffset = -flow;
+        ctx.beginPath();
+        ctx.moveTo(pad + 2, 13);
+        ctx.lineTo(W - pad - 2, 13);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        for (const s of sms) {
+          ctx.strokeStyle = s.act > 0.05 ? cyan(0.25 + 0.5 * s.act) : blue(0.3);
+          ctx.lineWidth = 1;
+          ctx.strokeRect(s.x + 0.5, s.y + 0.5, smW - 1, smH - 1);
+          const cw = (smW - 8) / lx, ch = (smH - 8) / ly;
+          for (let wy = 0; wy < ly; wy++) {
+            // All lanes of a warp share one phase: they execute in lockstep.
+            const on = s.act * (0.5 + 0.5 * Math.sin(flow * 0.12 - wy * 0.9 + s.phase));
+            ctx.fillStyle = on > 0.03 ? cyan(0.15 + 0.8 * on) : blue(0.12);
+            for (let wx = 0; wx < lx; wx++) ctx.fillRect(s.x + 4 + wx * cw + 1, s.y + 4 + wy * ch + 1, cw - 2, ch - 2);
+          }
+        }
+      },
+    };
+  }
+
+  // ---------- Real-time systems: a scheduler timeline; hovering a core injects urgent jobs that preempt ----------
+  function realtime(W, H) {
+    const rows = 4, padY = 14, rowH = (H - padY * 2) / rows, pxs = 70, nowX = W * 0.3;
+    const lanes = [];
+    for (let r = 0; r < rows; r++) {
+      const period = rand(0.9, 1.5);
+      lanes.push({ period, exec: period * rand(0.3, 0.55), release: rand(-nowX / pxs, 0), busy: -Infinity, jobs: [] });
+    }
+    let clock = 0, inject = 0;
+    const X = (time) => nowX + (time - clock) * pxs;
+
+    return {
+      step(dt, t, m) {
+        clock += dt;
+        const horizon = clock + (W - nowX) / pxs + 1;
+        for (const ln of lanes) {
+          while (ln.release < horizon) {
+            const s = Math.max(ln.release, ln.busy);
+            ln.jobs.push({ s, e: s + ln.exec, d: ln.release + ln.period });
+            ln.busy = s + ln.exec;
+            ln.release += ln.period;
+          }
+          ln.jobs = ln.jobs.filter((j) => X(j.e) > -10);
+        }
+        // Hover: an urgent job preempts the hovered core; later work slides right and may miss deadlines.
+        if (m.inside && (inject += dt) > 0.6) {
+          inject = 0;
+          const ln = lanes[clamp(Math.floor((m.y - padY) / rowH), 0, rows - 1)];
+          const U = 0.3, extra = [];
+          for (const j of ln.jobs) {
+            if (j.urgent) continue;
+            if (j.s >= clock) { j.s += U; j.e += U; }
+            else if (j.e > clock) { extra.push({ s: clock + U, e: j.e + U, d: j.d }); j.e = clock; }
+          }
+          ln.jobs.push(...extra, { s: clock, e: clock + U, d: clock + U, urgent: true });
+          ln.busy += U;
+        }
+      },
+      draw(ctx) {
+        lanes.forEach((ln, r) => {
+          const y = padY + r * rowH, h = rowH * 0.5, yb = y + (rowH - h) / 2;
+          ctx.strokeStyle = blue(0.15);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, yb + h + 0.5);
+          ctx.lineTo(W, yb + h + 0.5);
+          ctx.stroke();
+          for (const j of ln.jobs) {
+            const x0 = X(j.s), x1 = X(j.e);
+            if (x1 < 0 || x0 > W) continue;
+            const past = j.e < clock;
+            const miss = !j.urgent && j.e > j.d + 1e-6;
+            ctx.fillStyle = j.urgent ? cyan(past ? 0.4 : 0.9) : blue(past ? 0.3 : 0.65);
+            ctx.fillRect(x0, yb, Math.max(1, x1 - x0 - 1), h);
+            if (miss) {
+              ctx.strokeStyle = warn(past ? 0.4 : 0.9);
+              ctx.strokeRect(x0 + 0.5, yb + 0.5, Math.max(1, x1 - x0 - 2), h - 1);
+            }
+            if (!j.urgent) {
+              // Deadline marker.
+              const xd = X(j.d);
+              ctx.fillStyle = miss ? warn(0.8) : blue(0.5);
+              ctx.beginPath();
+              ctx.moveTo(xd - 3, yb - 5);
+              ctx.lineTo(xd + 3, yb - 5);
+              ctx.lineTo(xd, yb - 1);
+              ctx.fill();
+            }
+          }
+        });
+        ctx.strokeStyle = cyan(0.8);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(nowX, 4);
+        ctx.lineTo(nowX, H - 4);
+        ctx.stroke();
+      },
+    };
+  }
+
+  // ---------- Edge computing: devices offload to a distant cloud; near the cursor they compute locally ----------
+  function edge(W, H) {
+    const cloud = { x: W / 2, y: 24 }, R = Math.min(W, H) * 0.38;
+    const devices = [];
+    for (let i = 0; i < 10; i++) {
+      devices.push({ x: W * (0.08 + 0.84 * (i + rand(0.2, 0.8)) / 10), y: rand(H * 0.55, H - 16), timer: rand(0, 2), pulse: 0, local: 0 });
+    }
+    let packets = [];
+    const TRIP = 0.9;
+
+    return {
+      step(dt, t, m) {
+        for (const d of devices) {
+          const near = m.inside && Math.hypot(d.x - m.x, d.y - m.y) < R;
+          d.local += ((near ? 1 : 0) - d.local) * ease(dt, 6);
+          d.pulse = Math.max(0, d.pulse - dt * 2.5);
+          if ((d.timer -= dt) > 0) continue;
+          if (near) { d.timer = rand(0.35, 0.6); d.pulse = 1; } // on-device inference: fast, no network trip
+          else { d.timer = rand(1.6, 2.6); packets.push({ d, k: 0, up: true }); }
+        }
+        for (const p of packets) {
+          p.k += dt / TRIP;
+          if (p.k >= 1 && p.up) { p.up = false; p.k = 0; }
+          else if (p.k >= 1) { p.done = true; p.d.pulse = 0.6; }
+        }
+        packets = packets.filter((p) => !p.done);
+      },
+      draw(ctx, t, m) {
+        // Cloud.
+        ctx.fillStyle = blue(0.25);
+        for (const [dx, dy, r] of [[-14, 4, 10], [0, -2, 14], [15, 4, 10]]) {
+          ctx.beginPath();
+          ctx.arc(cloud.x + dx, cloud.y + dy, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.setLineDash([2, 5]);
+        ctx.lineWidth = 1;
+        for (const d of devices) {
+          ctx.strokeStyle = blue(0.18 * (1 - d.local));
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(cloud.x, cloud.y + 10);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        for (const p of packets) {
+          const k = p.up ? p.k : 1 - p.k;
+          const x = p.d.x + (cloud.x - p.d.x) * k, y = p.d.y + (cloud.y + 10 - p.d.y) * k;
+          ctx.fillStyle = p.up ? blue(0.9) : cyan(0.9);
+          ctx.fillRect(x - 2, y - 2, 4, 4);
+        }
+        if (m.inside) {
+          ctx.strokeStyle = cyan(0.25);
+          ctx.beginPath();
+          ctx.arc(m.x, m.y, R, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        for (const d of devices) {
+          if (d.pulse > 0) {
+            ctx.strokeStyle = cyan(d.pulse * 0.8);
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, 7 + (1 - d.pulse) * 10, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.fillStyle = d.local > 0.5 ? cyan(0.95) : blue(0.7);
+          ctx.fillRect(d.x - 5, d.y - 7, 10, 14);
+          ctx.fillStyle = BG;
+          ctx.fillRect(d.x - 3, d.y - 5, 6, 8);
+        }
+      },
+    };
+  }
+
+  // ---------- Physical AI: a robot arm picks and places blocks; on hover it reaches for the cursor ----------
+  function physical(W, H) {
+    const floor = H - 12, base = { x: W / 2, y: floor - 6 };
+    const L1 = H * 0.42, L2 = H * 0.36, reach = L1 + L2 - 2, S = 12;
+    const blocks = [];
+    const eff = { x: base.x, y: base.y - L1 };
+    let held = null, target = null, drop = null;
+
+    // A free floor spot the hand can reach (not right under the base, where the arm can't fold).
+    const spot = () => {
+      for (let k = 0; k < 30; k++) {
+        const x = base.x + rand(-reach * 0.85, reach * 0.85);
+        if (Math.abs(x - base.x) > 30 && blocks.every((b) => Math.abs(b.x - x) > S * 1.6)) return { x, y: floor - S / 2 };
+      }
+      return { x: base.x + reach * 0.5, y: floor - S / 2 };
+    };
+    for (let i = 0; i < 3; i++) blocks.push(spot());
+    target = blocks[0];
+    // Two-link inverse kinematics, picking the elbow-up solution.
+    function ik(tx, ty) {
+      const dx = tx - base.x, dy = ty - base.y;
+      const d = clamp(Math.hypot(dx, dy), Math.abs(L1 - L2) + 1, L1 + L2 - 0.01);
+      const a = Math.atan2(dy, dx);
+      const q2 = Math.acos(clamp((d * d - L1 * L1 - L2 * L2) / (2 * L1 * L2), -1, 1));
+      let best = null;
+      for (const s of [1, -1]) {
+        const q1 = a - Math.atan2(L2 * Math.sin(s * q2), L1 + L2 * Math.cos(s * q2));
+        const elbow = { x: base.x + Math.cos(q1) * L1, y: base.y + Math.sin(q1) * L1 };
+        if (!best || elbow.y < best.elbow.y) best = { elbow, q1, q2: s * q2 };
+      }
+      const hand = { x: best.elbow.x + Math.cos(best.q1 + best.q2) * L2, y: best.elbow.y + Math.sin(best.q1 + best.q2) * L2 };
+      return { elbow: best.elbow, hand };
+    }
+
+    return {
+      step(dt, t, m) {
+        let gx, gy;
+        if (m.inside) { gx = m.x; gy = Math.min(m.y, floor - S / 2); }
+        else if (held) { gx = drop.x; gy = drop.y; }
+        else { gx = target.x; gy = target.y; }
+        const speed = m.inside ? 10 : 3.2;
+        eff.x += (gx - eff.x) * ease(dt, speed);
+        eff.y += (gy - eff.y) * ease(dt, speed);
+        const hand = ik(eff.x, eff.y).hand;
+        if (!m.inside) {
+          const close = (p) => Math.hypot(hand.x - p.x, hand.y - p.y) < 3;
+          if (!held && close(target)) { held = target; drop = spot(); }
+          else if (held && close(drop)) {
+            held.x = drop.x; held.y = drop.y;
+            const others = blocks.filter((b) => b !== held);
+            held = null;
+            target = others[(Math.random() * others.length) | 0];
+          }
+        }
+        if (held) { held.x = hand.x; held.y = hand.y; }
+      },
+      draw(ctx, t, m) {
+        ctx.strokeStyle = blue(0.3);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, floor + 0.5);
+        ctx.lineTo(W, floor + 0.5);
+        ctx.stroke();
+        ctx.setLineDash([3, 5]);
+        ctx.strokeStyle = blue(0.18);
+        ctx.beginPath();
+        ctx.arc(base.x, base.y, reach, Math.PI, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        for (const b of blocks) {
+          ctx.fillStyle = b === held ? cyan(0.9) : b === target && !held ? blue(0.85) : blue(0.55);
+          ctx.fillRect(b.x - S / 2, b.y - S / 2, S, S);
+        }
+        if (!held && !m.inside) {
+          ctx.strokeStyle = cyan(0.5 + 0.3 * Math.sin(t * 6));
+          ctx.strokeRect(target.x - S / 2 - 3.5, target.y - S / 2 - 3.5, S + 7, S + 7);
+        }
+        if (held && drop && !m.inside) {
+          ctx.strokeStyle = cyan(0.35);
+          ctx.setLineDash([2, 3]);
+          ctx.strokeRect(drop.x - S / 2 - 0.5, drop.y - S / 2 - 0.5, S + 1, S + 1);
+          ctx.setLineDash([]);
+        }
+
+        const { elbow, hand } = ik(eff.x, eff.y);
+        const far = m.inside && Math.hypot(m.x - base.x, m.y - base.y) > reach;
+        ctx.strokeStyle = cyan(0.95);
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(base.x, base.y);
+        ctx.lineTo(elbow.x, elbow.y);
+        ctx.lineTo(hand.x, hand.y);
+        ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.fillStyle = blue(0.9);
+        ctx.fillRect(base.x - 14, base.y - 2, 28, 8);
+        for (const p of [base, elbow]) {
+          ctx.fillStyle = BG;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = cyan(0.95);
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        // Gripper.
+        const ang = Math.atan2(hand.y - elbow.y, hand.x - elbow.x);
+        const open = held ? 3 : 6;
+        ctx.strokeStyle = far ? warn(0.9) : cyan(0.95);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (const s of [1, -1]) {
+          const px = hand.x + Math.cos(ang + (s * Math.PI) / 2) * open, py = hand.y + Math.sin(ang + (s * Math.PI) / 2) * open;
+          ctx.moveTo(hand.x, hand.y);
+          ctx.lineTo(px, py);
+          ctx.lineTo(px + Math.cos(ang) * 6, py + Math.sin(ang) * 6);
+        }
+        ctx.stroke();
+      },
+    };
+  }
+
+  const makers = { mtp, llm, memory, gpu, realtime, driving, drone, physical, compression, edge, optimization };
 
   // ---------- Driver ----------
   for (const canvas of canvases) {
