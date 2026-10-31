@@ -939,24 +939,32 @@
     };
   }
 
-  // ---------- Physical AI: a robot arm picks and places blocks; on hover it reaches for the cursor ----------
+  // ---------- Physical AI: a robot arm picks and places blocks; hover to steer it, press near a block to grab it ----------
   function physical(W, H) {
     const floor = H - 12, base = { x: W / 2, y: floor - 6 };
-    const L1 = H * 0.42, L2 = H * 0.36, reach = L1 + L2 - 2, S = 12;
-    const blocks = [];
+    const L1 = H * 0.42, L2 = H * 0.36, reach = L1 + L2 - 2, S = 16, GRAB_R = 16;
+    const blocks = [
+      { x: base.x - reach * 0.6, y: floor - S / 2, vy: 0 },
+      { x: base.x + reach * 0.6, y: floor - S / 2, vy: 0 },
+    ];
     const eff = { x: base.x, y: base.y - L1 };
-    let held = null, target = null, drop = null;
+    // held: block in the gripper; byUser: grabbed by the visitor rather than the idle routine.
+    let held = null, byUser = false, target = blocks[0], drop = null, seek = 0;
 
     // A free floor spot the hand can reach (not right under the base, where the arm can't fold).
     const spot = () => {
       for (let k = 0; k < 30; k++) {
         const x = base.x + rand(-reach * 0.85, reach * 0.85);
-        if (Math.abs(x - base.x) > 30 && blocks.every((b) => Math.abs(b.x - x) > S * 1.6)) return { x, y: floor - S / 2 };
+        if (Math.abs(x - base.x) > 30 && blocks.every((b) => b === held || Math.abs(b.x - x) > S * 1.6)) return { x, y: floor - S / 2 };
       }
       return { x: base.x + reach * 0.5, y: floor - S / 2 };
     };
-    for (let i = 0; i < 3; i++) blocks.push(spot());
-    target = blocks[0];
+    // Where a free block comes to rest: the floor, or the top of a block below it.
+    const restY = (b) => {
+      let y = floor - S / 2;
+      for (const o of blocks) if (o !== b && o !== held && Math.abs(o.x - b.x) < S && o.y > b.y) y = Math.min(y, o.y - S);
+      return y;
+    };
     // Two-link inverse kinematics, picking the elbow-up solution.
     function ik(tx, ty) {
       const dx = tx - base.x, dy = ty - base.y;
@@ -975,6 +983,15 @@
 
     return {
       step(dt, t, m) {
+        const reachNow = ik(eff.x, eff.y).hand;
+        if (m.inside) {
+          if (held && !byUser) held = null; // the visitor takes over: drop what the arm was carrying
+          if (m.down && !held) {
+            const b = blocks.find((o) => Math.hypot(o.x - reachNow.x, o.y - reachNow.y) < GRAB_R);
+            if (b) { held = b; byUser = true; }
+          } else if (!m.down && held) held = null;
+        } else if (held && byUser) held = null;
+
         let gx, gy;
         if (m.inside) { gx = m.x; gy = Math.min(m.y, floor - S / 2); }
         else if (held) { gx = drop.x; gy = drop.y; }
@@ -983,17 +1000,24 @@
         eff.x += (gx - eff.x) * ease(dt, speed);
         eff.y += (gy - eff.y) * ease(dt, speed);
         const hand = ik(eff.x, eff.y).hand;
+
+        // Idle routine: carry one block to a free spot, then go for the other one.
         if (!m.inside) {
           const close = (p) => Math.hypot(hand.x - p.x, hand.y - p.y) < 3;
-          if (!held && close(target)) { held = target; drop = spot(); }
-          else if (held && close(drop)) {
-            held.x = drop.x; held.y = drop.y;
-            const others = blocks.filter((b) => b !== held);
-            held = null;
-            target = others[(Math.random() * others.length) | 0];
-          }
+          seek += dt;
+          if (!held && close(target)) { held = target; byUser = false; drop = spot(); seek = 0; }
+          else if (held && close(drop)) { const b = held; held = null; target = blocks.find((o) => o !== b); seek = 0; }
+          else if (!held && seek > 4) { target = blocks.find((o) => o !== target); seek = 0; } // out of reach: try the other
+        } else seek = 0;
+
+        if (held) { held.x = hand.x; held.y = hand.y; held.vy = 0; }
+        // Gravity for every block not in the gripper.
+        for (const b of blocks) {
+          if (b === held) continue;
+          const ry = restY(b);
+          if (b.y < ry) { b.vy += 900 * dt; b.y = Math.min(ry, b.y + b.vy * dt); }
+          if (b.y >= ry) { b.y = ry; b.vy = 0; }
         }
-        if (held) { held.x = hand.x; held.y = hand.y; }
       },
       draw(ctx, t, m) {
         ctx.strokeStyle = blue(0.3);
@@ -1009,15 +1033,19 @@
         ctx.stroke();
         ctx.setLineDash([]);
 
+        const reachNow = ik(eff.x, eff.y).hand;
+        const grabbable = m.inside && !held ? blocks.find((o) => Math.hypot(o.x - reachNow.x, o.y - reachNow.y) < GRAB_R) : null;
         for (const b of blocks) {
-          ctx.fillStyle = b === held ? cyan(0.9) : b === target && !held ? blue(0.85) : blue(0.55);
+          ctx.fillStyle = b === held ? cyan(0.9) : b === grabbable ? blue(0.95) : blue(0.65);
           ctx.fillRect(b.x - S / 2, b.y - S / 2, S, S);
         }
-        if (!held && !m.inside) {
+        // Pulsing outline: the idle routine's next block, or the one the gripper can grab right now.
+        const mark = grabbable || (!held && !m.inside ? target : null);
+        if (mark) {
           ctx.strokeStyle = cyan(0.5 + 0.3 * Math.sin(t * 6));
-          ctx.strokeRect(target.x - S / 2 - 3.5, target.y - S / 2 - 3.5, S + 7, S + 7);
+          ctx.strokeRect(mark.x - S / 2 - 3.5, mark.y - S / 2 - 3.5, S + 7, S + 7);
         }
-        if (held && drop && !m.inside) {
+        if (held && !byUser && drop && !m.inside) {
           ctx.strokeStyle = cyan(0.35);
           ctx.setLineDash([2, 3]);
           ctx.strokeRect(drop.x - S / 2 - 0.5, drop.y - S / 2 - 0.5, S + 1, S + 1);
@@ -1070,7 +1098,7 @@
     const make = makers[canvas.dataset.anim];
     if (!make) continue;
     const ctx = canvas.getContext("2d");
-    const m = { x: -1e4, y: -1e4, inside: false };
+    const m = { x: -1e4, y: -1e4, inside: false, down: false };
     let anim, W, H, running = false, visible = false, last = 0;
 
     function setup() {
@@ -1115,7 +1143,15 @@
       m.y = ev.clientY - r.top;
       m.inside = true;
     });
-    canvas.addEventListener("pointerleave", () => { m.inside = false; m.x = m.y = -1e4; });
+    canvas.addEventListener("pointerleave", () => { m.inside = false; m.down = false; m.x = m.y = -1e4; });
+    canvas.addEventListener("pointerdown", (ev) => {
+      const r = canvas.getBoundingClientRect();
+      m.x = ev.clientX - r.left;
+      m.y = ev.clientY - r.top;
+      m.inside = true;
+      m.down = true;
+    });
+    for (const type of ["pointerup", "pointercancel"]) canvas.addEventListener(type, () => { m.down = false; });
     canvas.addEventListener("click", (ev) => {
       if (!anim.click) return;
       const r = canvas.getBoundingClientRect();
