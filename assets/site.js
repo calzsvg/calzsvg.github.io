@@ -156,8 +156,11 @@
                 <div class="person">
                   ${img(p.image, p.name, "avatar", initials(p.name))}
                   <div class="person-name">${p.link ? `<a href="${esc(p.link)}">${esc(p.name)}</a>` : esc(p.name)}</div>
-                  <div class="person-role">${esc(p.role)}</div>
+                  ${p.nameEn ? `<div class="person-name-en">${esc(p.nameEn)}</div>` : ""}
+                  ${p.role ? `<div class="person-role">${esc(p.role)}</div>` : ""}
+                  ${p.interests?.length ? `<div class="person-interests">${p.interests.map(esc).join(" · ")}</div>` : ""}
                   ${p.email ? `<div class="person-email"><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></div>` : ""}
+                  ${p.github ? `<div class="person-links"><a href="https://github.com/${esc(p.github)}" target="_blank" rel="noopener">GitHub</a></div>` : ""}
                 </div>`
                 )
                 .join("")}

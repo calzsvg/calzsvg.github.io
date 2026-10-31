@@ -143,7 +143,11 @@ h2 { font-size: 20px; font-weight: 600; margin: 0 0 18px; padding-bottom: 8px; b
 .avatar { width: 140px; height: 140px; border-radius: 6px; object-fit: cover; margin: 0 auto 12px; font-size: 28px; }
 .faculty .avatar { width: 180px; height: 180px; }
 .person-name { font-weight: 600; }
+.person-name-en { font-size: 14px; }
 .person-role, .person-email { color: var(--muted); font-size: 14px; }
+.person-email { font-size: 13px; overflow-wrap: anywhere; }
+.person-interests { color: var(--text); opacity: 0.85; font-size: 13px; line-height: 1.45; margin: 4px 0; }
+.person-links { font-size: 13px; }
 
 /* ---------- Publications ---------- */
 .pubs { list-style: none; padding: 0; margin: 0; }
