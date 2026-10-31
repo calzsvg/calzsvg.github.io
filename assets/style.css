@@ -147,7 +147,6 @@ h2 { font-size: 20px; font-weight: 600; margin: 0 0 18px; padding-bottom: 8px; b
 .person-role, .person-email { color: var(--muted); font-size: 14px; }
 .person-email { font-size: 13px; overflow-wrap: anywhere; }
 .person-interests { color: var(--text); opacity: 0.85; font-size: 13px; line-height: 1.45; margin: 4px 0; }
-.person-links { font-size: 13px; }
 
 /* ---------- Publications ---------- */
 .pubs { list-style: none; padding: 0; margin: 0; }
