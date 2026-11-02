@@ -166,7 +166,7 @@ window.AISL = {
     { name: "라이언", nameEn: "Ieon Na", role: "Ph.D. Student", group: "Ph.D. Students", image: "",
       email: "112fkdldjs@naver.com", github: "Nyan-SouthKorea", interests: ["Physical AI"] },
 
-    { name: "양승언", nameEn: "Seungun Yang", role: "M.S. Student", group: "M.S. Students", image: "",
+    { name: "양승언", nameEn: "Seungun Yang", role: "M.S. Student", group: "M.S. Students", image: "images/people/seungun-yang.jpg",
       email: "seungun0915@hanyang.ac.kr", github: "Fusili23", interests: ["GPU Architecture", "Real-Time Systems"] },
     { name: "오상영", nameEn: "Sangyoung Oh", role: "M.S. Student", group: "M.S. Students", image: "images/people/sangyoung-oh.jpg",
       email: "helloosy@hanyang.ac.kr", github: "hello-osy", interests: ["Drones", "LLM Acceleration", "Real-Time Systems", "Memory & GPU Optimization"] },
