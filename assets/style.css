@@ -101,6 +101,7 @@ h2 { font-size: 20px; font-weight: 600; margin: 0 0 18px; padding-bottom: 8px; b
 .person { text-align: center; }
 .avatar { width: 140px; height: 140px; border-radius: 6px; object-fit: cover; margin: 0 auto 12px; font-size: 28px; }
 .faculty .avatar { width: 180px; height: 180px; }
+img.avatar { display: block; } /* no inline-image baseline gap, so photo and placeholder cards line up */
 .person-name { font-weight: 600; }
 .person-name-en { font-size: 14px; }
 .person-role, .person-email { color: var(--muted); font-size: 14px; }
