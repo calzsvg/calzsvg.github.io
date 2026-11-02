@@ -101,15 +101,6 @@ body[data-page="index"] { overflow: hidden; }
 body[data-page="index"] #site-footer,
 body[data-page="hoyoung"] #site-footer,
 body[data-page="skill"] #site-footer { display: none; } /* nothing but stars around these pages */
-/* Sits quietly among the stars at the bottom centre. */
-.home-email {
-  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-  margin: 0;
-  color: rgba(var(--ink), 0.5);
-  font-size: 14px; letter-spacing: 0.12em;
-  white-space: nowrap;
-  pointer-events: none;
-}
 body.shaped #dots-canvas { cursor: grab; } /* a formed model can be dragged round */
 body.dragging #dots-canvas { cursor: grabbing; }
 

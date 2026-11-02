@@ -76,10 +76,9 @@
 
   // ---------- Pages ----------
   const renders = {
-    // Full-screen dot field (assets/dots.js animates it) with the email at the bottom centre.
+    // Full-screen dot field; assets/dots.js animates it.
     index() {
-      return `<canvas id="dots-canvas" aria-hidden="true"></canvas>
-      ${D.contact.email ? `<p class="home-email">${esc(D.contact.email)}</p>` : ""}`;
+      return `<canvas id="dots-canvas" aria-hidden="true"></canvas>`;
     },
 
     // Intro and skills sit on the same wandering stars as home, minus the shapes.
