@@ -2,16 +2,17 @@
 // Images: put files in /images and set `image: "images/xxx.jpg"`. Leave empty for a placeholder.
 
 window.SITE = {
-  // Your name: shown in the browser tab and the footer.
+  // Your name: shown in the browser tab.
   name: "",
 
-  // About page: a one-line headline, [label, text] rows, then a Links row of { text, url },
+  // About page: a one-line headline, [label, text] rows (text can be a list of strings
+  // and { text, url } links), then a Links row of { text, url },
   // and a Contact row with the email below.
   about: {
     headline: "AISL Researcher",
     rows: [
       ["Research Interests", "Efficient AI, Autonomous Systems"],
-      ["Lab", "AISL, Hanyang University ERICA"],
+      ["Lab", [{ text: "AISL", url: "https://hyuaisl.github.io/" }, ", Hanyang University ERICA"]],
     ],
     links: [
       { text: "GitHub", url: "https://github.com/calzsvg" },
@@ -26,7 +27,7 @@ window.SITE = {
   // { year, title, authors, venue, links: { pdf, code, project, bibtex, video } }
   publications: [],
 
-  // Shown on the About page and in the footer.
+  // Shown on the About page.
   contact: {
     email: "hoyoung5128@gmail.com",
   },

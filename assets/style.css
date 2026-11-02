@@ -59,12 +59,10 @@ body:not([data-page="index"]) #content { padding-top: 72px; }
 /* ---------- Home: full-screen dots ---------- */
 #dots-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 /* As a plain background on other pages it stays out of the way of scrolling and selecting,
-   and the page content and footer paint above it. */
+   and the page content paints above it. */
 #dots-canvas[data-mode="stars"] { pointer-events: none; }
-.container, #site-footer { position: relative; }
+.container { position: relative; }
 body[data-page="index"] { overflow: hidden; }
-body[data-page="index"] #site-footer,
-body[data-page="about"] #site-footer { display: none; } /* nothing but stars around these pages */
 body.shaped #dots-canvas { cursor: grab; } /* a formed model can be dragged round */
 body.dragging #dots-canvas { cursor: grabbing; }
 
@@ -106,10 +104,6 @@ h2 { font-size: 20px; font-weight: 600; margin: 0 0 18px; padding-bottom: 8px; b
 .pub-links .disabled { color: var(--disabled); }
 .empty { color: var(--muted); }
 
-/* ---------- Footer ---------- */
-#site-footer { margin-top: 48px; background: var(--band); border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
-.footer-inner { display: flex; justify-content: space-between; gap: 24px; padding: 28px 24px; }
-
 /* ---------- Mobile ---------- */
 @media (max-width: 760px) {
   .container { padding: 0 16px; }
@@ -117,5 +111,4 @@ h2 { font-size: 20px; font-weight: 600; margin: 0 0 18px; padding-bottom: 8px; b
   .nav { gap: 0; }
   .nav a { padding: 6px 10px; }
   .project { grid-template-columns: 1fr; gap: 20px; }
-  .footer-inner { flex-direction: column; padding: 24px 16px; }
 }

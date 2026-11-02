@@ -1,4 +1,4 @@
-// Renders the shared header/footer and page content from window.SITE (data/content.js).
+// Renders the shared header and page content from window.SITE (data/content.js).
 
 (function () {
   const D = window.SITE;
@@ -16,7 +16,7 @@
   const stars = `<canvas id="dots-canvas" data-mode="stars" aria-hidden="true"></canvas>`;
   const empty = (what) => `<section><p class="empty">${what} will be listed here soon.</p></section>`;
 
-  // ---------- Header / footer ----------
+  // ---------- Header ----------
   const nav = [
     ["index", "Home", "index.html"],
     ["research", "Research", "research.html"],
@@ -40,12 +40,6 @@
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
 
-  document.getElementById("site-footer").innerHTML = `
-    <div class="container footer-inner">
-      <div>© ${new Date().getFullYear()} ${esc(D.name)}</div>
-      ${D.contact.email ? `<div><a href="mailto:${esc(D.contact.email)}">${esc(D.contact.email)}</a></div>` : ""}
-    </div>`;
-
   const main = document.getElementById("content");
 
   // ---------- Pages ----------
@@ -55,7 +49,7 @@
       return `<canvas id="dots-canvas" aria-hidden="true"></canvas>`;
     },
 
-    // The intro sits on the same wandering stars as home, minus the shapes.
+    // The other pages sit on the same wandering stars as home, minus the shapes.
     about() {
       return `${stars}
       <div class="container">
@@ -63,7 +57,7 @@
         <section class="intro">
           <p class="intro-headline">${esc(D.about.headline)}</p>
           <dl class="intro-rows">
-            ${D.about.rows.map(([label, text]) => `<dt>${esc(label)}</dt><dd>${esc(text)}</dd>`).join("")}
+            ${D.about.rows.map(([label, text]) => `<dt>${esc(label)}</dt><dd>${[].concat(text).map((t) => (t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.text)}</a>` : esc(t))).join("")}</dd>`).join("")}
             ${D.about.links.length ? `<dt>Links</dt><dd class="intro-links">${D.about.links.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.text)}</a>`).join("")}</dd>` : ""}
             ${D.contact.email ? `<dt>Contact</dt><dd><a href="mailto:${esc(D.contact.email)}">${esc(D.contact.email)}</a></dd>` : ""}
           </dl>
@@ -72,7 +66,7 @@
     },
 
     research() {
-      return `
+      return `${stars}
       <div class="container">
         <h1 class="page-title">Research</h1>
         ${D.research.length ? "" : empty("Research")}
@@ -95,7 +89,7 @@
     publications() {
       const years = [...new Set(D.publications.map((p) => p.year))].sort((a, b) => b - a);
       const linkLabels = { pdf: "PDF", code: "Code", project: "Project", bibtex: "BibTeX", video: "Video" };
-      return `
+      return `${stars}
       <div class="container">
         <h1 class="page-title">Publications</h1>
         ${years.length ? "" : empty("Publications")}
