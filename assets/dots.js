@@ -1,8 +1,8 @@
 // Home page: a full-screen field of wandering white dots, like stars. Bringing the pointer
 // toward the middle gathers them into a 3D point-cloud model (a Hyundai Ioniq, an LLM, a
 // monitor, multi-token prediction, a MacBook-style laptop, in turn) that turns slowly like a
-// showroom turntable while the pointer stays over it. A click keeps the model for 2 s, then
-// the dots scatter back into stars. With data-mode="stars" on the canvas it's only the
+// showroom turntable. Each model lasts 2 s (a click restarts that, dragging it round pauses
+// it), then the dots scatter back into stars. With data-mode="stars" on the canvas it's only the
 // wandering stars, as a background for other pages.
 
 (function () {
@@ -11,8 +11,8 @@
   const ctx = canvas.getContext("2d");
   const STAR = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "238, 242, 250";
 
-  const HOLD_MS = 2000; // a click keeps the model this long
-  const REST_MS = 1200; // after a click-scatter, the pointer can't regather for this long
+  const HOLD_MS = 2000; // a model lasts this long once formed, or after a click
+  const REST_MS = 1200; // after it scatters, the pointer can't regather for this long
   const SPIN = 0.24; // turntable speed, rad/s (a full turn in ~26 s)
   const PITCH = 0.32; // camera looks down at the model by this much, rad
   const CAMERA = 4.2; // camera distance, in normalised model radii
@@ -356,7 +356,8 @@
   }
 
   // ---------- Behaviour ----------
-  let mode = "wander"; // "wander" | "shape" (pointer holds it) | "hold" (clicked: timed)
+  let mode = "wander"; // "wander" | "shape" (formed) | "hold" (clicked: stays even if the pointer leaves)
+  let releaseAt = 0; // when the current model scatters
   let modelIndex = -1;
   let angle = START_ANGLE;
   let pitch = PITCH;
@@ -380,6 +381,7 @@
     spin = SPIN;
     assign(MODELS[modelIndex]);
     mode = "shape";
+    releaseAt = performance.now() + HOLD_MS;
   }
 
   function scatter(rest) {
@@ -440,9 +442,9 @@
   });
   window.addEventListener("click", (e) => {
     if (dragged) { dragged = false; return; }
-    if (mode !== "shape" || e.target.closest("#site-header")) return;
+    if (mode === "wander" || e.target.closest("#site-header")) return;
     mode = "hold";
-    setTimeout(() => scatter(REST_MS), HOLD_MS);
+    releaseAt = performance.now() + HOLD_MS;
   });
   window.addEventListener("resize", resize);
 
@@ -451,6 +453,10 @@
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+    if (mode !== "wander") {
+      if (drag) releaseAt = now + HOLD_MS; // turning it by hand keeps it, then 2 s after letting go
+      else if (now >= releaseAt) scatter(REST_MS);
+    }
     const formed = mode !== "wander";
     if (formed && !drag) {
       angle += spin * dt;
