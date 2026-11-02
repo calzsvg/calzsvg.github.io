@@ -161,7 +161,7 @@ window.AISL = {
   // name: Korean name (or English if none), nameEn: English name, github: GitHub username.
   // interests: use research titles exactly as written above.
   people: [
-    { name: "조영은", nameEn: "Youngeun Cho", role: "Principal Investigator", group: "Faculty", image: "", link: "", email: "" },
+    { name: "조영은", nameEn: "Youngeun Cho", role: "Principal Investigator", group: "Faculty", image: "images/people/youngeun-cho.jpg", link: "", email: "" },
 
     { name: "라이언", nameEn: "Ieon Na", role: "Ph.D. Student", group: "Ph.D. Students", image: "",
       email: "112fkdldjs@naver.com", github: "Nyan-SouthKorea", interests: ["Physical AI"] },
