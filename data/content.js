@@ -163,7 +163,7 @@ window.AISL = {
   people: [
     { name: "조영은", nameEn: "Youngeun Cho", role: "Principal Investigator", group: "Faculty", image: "images/people/youngeun-cho.jpg", link: "", email: "" },
 
-    { name: "라이언", nameEn: "Ieon Na", role: "Ph.D. Student", group: "Ph.D. Students", image: "",
+    { name: "라이언", nameEn: "Ieon Na", role: "Ph.D. Student", group: "Ph.D. Students", image: "images/people/ieon-na.jpg",
       email: "112fkdldjs@naver.com", github: "Nyan-SouthKorea", interests: ["Physical AI"] },
 
     { name: "양승언", nameEn: "Seungun Yang", role: "M.S. Student", group: "M.S. Students", image: "images/people/seungun-yang.jpg",
