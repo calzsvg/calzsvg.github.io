@@ -21,45 +21,19 @@
     ["index", "Home", "index.html"],
     ["research", "Research", "research.html"],
     ["publications", "Publications", "publications.html"],
-    ["contact", "Contact", "contact.html"],
   ];
-  // The left panel has its own, shorter list.
-  const menuNav = [
-    ["index", "Home", "index.html"],
-    ["hoyoung", "hoyoung", "hoyoung.html"],
-    ["skill", "skill", "skill.html"],
-  ];
-  const links = (list) => list.map(([key, label, href]) => `<a href="${href}" class="${key === page ? "active" : ""}">${label}</a>`).join("");
+  // About sits on its own at the top left.
+  const leftNav = [["about", "About", "about.html"]];
+  // The current page's link, clicked again, goes home.
+  const links = (list) =>
+    list.map(([key, label, href]) => `<a href="${key === page ? "index.html" : href}" class="${key === page ? "active" : ""}">${label}</a>`).join("");
 
-  // Hovering the three-line button (or tapping it) slides in the left panel; the top-right
-  // links stay on wide screens.
   const header = document.getElementById("site-header");
   header.innerHTML = `
     <div class="header-inner">
-      <div class="menu">
-        <button class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="menu-links">
-          <span></span><span></span><span></span>
-        </button>
-        <nav class="menu-links" id="menu-links">${links(menuNav)}</nav>
-      </div>
+      <nav class="nav">${links(leftNav)}</nav>
       <nav class="nav">${links(nav)}</nav>
     </div>`;
-
-  const menu = header.querySelector(".menu");
-  const toggle = header.querySelector(".nav-toggle");
-  const setMenu = (open) => {
-    menu.classList.toggle("open", open);
-    toggle.setAttribute("aria-expanded", open);
-    toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
-  };
-  let closeTimer;
-  menu.addEventListener("mouseenter", () => { clearTimeout(closeTimer); setMenu(true); });
-  menu.addEventListener("mouseleave", () => { closeTimer = setTimeout(() => setMenu(false), 200); });
-  // With a mouse, hover already opened it, so a click shouldn't close it again.
-  const canHover = matchMedia("(hover: hover)").matches;
-  toggle.addEventListener("click", () => setMenu(canHover || !menu.classList.contains("open")));
-  document.addEventListener("click", (e) => !menu.contains(e.target) && setMenu(false));
-  document.addEventListener("keydown", (e) => e.key === "Escape" && setMenu(false));
 
   // Transparent at the top; a faint frosted band once content scrolls under it.
   const onScroll = () => header.classList.toggle("scrolled", window.scrollY > 8);
@@ -81,20 +55,19 @@
       return `<canvas id="dots-canvas" aria-hidden="true"></canvas>`;
     },
 
-    // Intro and skills sit on the same wandering stars as home, minus the shapes.
-    hoyoung() {
+    // The intro sits on the same wandering stars as home, minus the shapes.
+    about() {
       return `${stars}
       <div class="container">
-        <h1 class="page-title">hoyoung</h1>
-        ${empty("Details")}
-      </div>`;
-    },
-
-    skill() {
-      return `${stars}
-      <div class="container">
-        <h1 class="page-title">skill</h1>
-        ${empty("Skills")}
+        <h1 class="page-title">About</h1>
+        <section class="intro">
+          <p class="intro-headline">${esc(D.about.headline)}</p>
+          <dl class="intro-rows">
+            ${D.about.rows.map(([label, text]) => `<dt>${esc(label)}</dt><dd>${esc(text)}</dd>`).join("")}
+            ${D.about.links.length ? `<dt>Links</dt><dd class="intro-links">${D.about.links.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.text)}</a>`).join("")}</dd>` : ""}
+            ${D.contact.email ? `<dt>Contact</dt><dd><a href="mailto:${esc(D.contact.email)}">${esc(D.contact.email)}</a></dd>` : ""}
+          </dl>
+        </section>
       </div>`;
     },
 
@@ -158,25 +131,9 @@
           .join("")}
       </div>`;
     },
-
-    contact() {
-      const C = D.contact;
-      return `
-      <div class="container">
-        <h1 class="page-title">Contact</h1>
-        ${C.email || C.links.length ? "" : empty("Contact details")}
-        <section>
-          ${C.email ? `<h2>Email</h2><p><a href="mailto:${esc(C.email)}">${esc(C.email)}</a></p>` : ""}
-          ${C.links.length
-            ? `<h2>Elsewhere</h2>
-          <p>${C.links.map((l) => `<span class="contact-label">${esc(l.label)}</span><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.text)}</a>`).join("<br>")}</p>`
-            : ""}
-        </section>
-      </div>`;
-    },
   };
 
   main.innerHTML = renders[page]();
-  const pageName = [...nav, ...menuNav].find(([key]) => key === page)[1];
+  const pageName = [...nav, ...leftNav].find(([key]) => key === page)[1];
   document.title = D.name ? (page === "index" ? D.name : `${pageName} | ${D.name}`) : pageName;
 })();

@@ -1,9 +1,9 @@
 // Home page: a full-screen field of wandering white dots, like stars. Bringing the pointer
-// toward the middle gathers them into a 3D point-cloud model (a Hyundai Ioniq, an LLM, a
-// monitor, multi-token prediction, a MacBook-style laptop, in turn) that turns slowly like a
-// showroom turntable. Each model lasts 2 s (a click restarts that, dragging it round pauses
-// it), then the dots scatter back into stars. With data-mode="stars" on the canvas it's only the
-// wandering stars, as a background for other pages.
+// toward the middle gathers them into a 3D point-cloud model (a Hyundai Ioniq and an LLM, in
+// turn) that turns slowly like a showroom turntable. It stays while the mouse is over it and
+// scatters back into stars as soon as the mouse leaves; a click keeps it 2 s even if the mouse
+// moves away (on touch screens, with no hover, each model lasts 2 s). With data-mode="stars"
+// on the canvas it's only the wandering stars, as a background for other pages.
 
 (function () {
   const canvas = document.getElementById("dots-canvas");
@@ -11,7 +11,7 @@
   const ctx = canvas.getContext("2d");
   const STAR = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "238, 242, 250";
 
-  const HOLD_MS = 2000; // a model lasts this long once formed, or after a click
+  const HOLD_MS = 2000; // a click keeps the model this long; on touch screens, every model
   const REST_MS = 1200; // after it scatters, the pointer can't regather for this long
   const SPIN = 0.24; // turntable speed, rad/s (a full turn in ~26 s)
   const PITCH = 0.32; // camera looks down at the model by this much, rad
@@ -26,7 +26,7 @@
   // ---------- 3D point-cloud helpers ----------
   // Points are [x, y, z, kind]: y up, +x the model's front (car nose), +z its right side.
   // SURF points fill in bodies and screens faintly, LINE points trace edges, LIGHT points
-  // (lamps, screen edges, tokens) are drawn larger and brighter.
+  // (lamps, tokens) are drawn larger and brighter.
   const SURF = 0, LINE = 1, LIGHT = 2;
   const STEP = 0.03;
 
@@ -52,10 +52,10 @@
         : [c[0], c[1] + v, c[2] + u, kind]);
     }
   }
-  function box(out, [x0, y0, z0], [x1, y1, z1], kind = LINE) {
+  function box(out, [x0, y0, z0], [x1, y1, z1], kind = LINE, step = STEP) {
     const c = (i) => [i & 1 ? x1 : x0, i & 2 ? y1 : y0, i & 4 ? z1 : z0];
     for (const [a, b] of [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]])
-      seg(out, c(a), c(b), kind);
+      seg(out, c(a), c(b), kind, step);
   }
   // Point at c + U·a + V·b, for drawing in an arbitrary plane.
   const at = (c, U, V, a, b) => [c[0] + U[0] * a + V[0] * b, c[1] + U[1] * a + V[1] * b, c[2] + U[2] * a + V[2] * b];
@@ -68,6 +68,14 @@
         pts.push(at(c, U, V, a + r * Math.cos(t), b + r * Math.sin(t)));
       }
     poly(out, pts, true, kind, step);
+  }
+  // Cubic Bezier from a to b through control points c1, c2.
+  function bezier(out, a, c1, c2, b, kind = LINE, step = STEP) {
+    const P = (t) => [0, 1, 2].map((k) => (1 - t) ** 3 * a[k] + 3 * (1 - t) ** 2 * t * c1[k] + 3 * (1 - t) * t * t * c2[k] + t ** 3 * b[k]);
+    let len = 0;
+    for (let i = 0; i < 20; i++) { const u = P(i / 20), v = P((i + 1) / 20); len += Math.hypot(v[0] - u[0], v[1] - u[1], v[2] - u[2]); }
+    const n = Math.max(2, Math.ceil(len / step));
+    for (let i = 0; i <= n; i++) out.push([...P(i / n), kind]);
   }
   // Grid of points over a rectangle centred at c in the plane U, V, for lit or textured faces.
   function grid(out, c, U, V, hw, hh, nu, nv, kind = SURF, keep = () => true) {
@@ -213,100 +221,41 @@
     return out;
   }
 
-  // Monitor in the style of a modern slim display: a thin flat panel with narrow even
-  // bezels, one angled aluminium arm onto a flat foot, and a low-profile keyboard and mouse.
-  function monitor() {
-    const out = [];
-    const C = [0, 0.43, 0], HW = 0.31, HH = 0.18;
-    rrect(out, C, X, Y, HW, HH, 0.012);
-    rrect(out, [0, 0.43, -0.022], X, Y, HW - 0.004, HH - 0.004, 0.012);
-    for (const [a, b] of [[HW, HH], [-HW, HH], [HW, -HH], [-HW, -HH]]) seg(out, [a, 0.43 + b, 0], [a * 0.985, 0.43 + b * 0.98, -0.022]);
-    rrect(out, [0, 0.43, 0.001], X, Y, HW - 0.012, HH - 0.012, 0.004, LIGHT);
-    grid(out, [0, 0.43, 0.001], X, Y, HW - 0.02, HH - 0.02, 18, 10);
-    // Arm: a flat plate from behind the panel down and back to the foot.
-    const arm = [[-0.07, 0.36, -0.024], [0.07, 0.36, -0.024], [0.07, 0.012, -0.19], [-0.07, 0.012, -0.19]];
-    poly(out, arm, true);
-    grid(out, [0, 0.186, -0.107], X, [0, 0.902, -0.432], 0.06, 0.18, 4, 6);
-    rrect(out, [0, 0.012, -0.09], X, Z, 0.085, 0.12, 0.025);
-    rrect(out, [0, 0, -0.09], X, Z, 0.085, 0.12, 0.025);
-    // Keyboard and mouse.
-    rrect(out, [-0.04, 0.008, 0.25], X, Z, 0.15, 0.055, 0.01);
-    grid(out, [-0.04, 0.009, 0.25], X, Z, 0.135, 0.042, 15, 5);
-    rrect(out, [0.2, 0.01, 0.26], X, Z, 0.028, 0.05, 0.026);
-    return out;
-  }
+  // Token: a small glowing sphere, three great circles round c.
+  const token = (out, c, r = 0.06, kind = LIGHT) => { for (const f of ["x", "y", "z"]) arc(out, c, r, f, kind); };
 
-  // Laptop in the style of a MacBook Pro: thin rounded aluminium slab, keyboard well with
-  // speaker grilles either side, a wide trackpad, a thumb notch at the front edge, the lid
-  // open past upright with slim bezels, a camera notch and a logo on the back.
-  function macbook() {
-    const out = [];
-    const T = 0.0155, HW = 0.156, HD = 0.1105;
-    rrect(out, [0, 0, 0], X, Z, HW, HD, 0.012, LINE, 0.012);
-    rrect(out, [0, T, 0], X, Z, HW, HD, 0.012, LINE, 0.012);
-    rrect(out, [0, T, -0.025], X, Z, 0.128, 0.056, 0.006, LINE, 0.01);
-    grid(out, [0, T, -0.025], X, Z, 0.122, 0.05, 15, 6);
-    for (const s of [-1, 1]) grid(out, [s * 0.143, T, -0.025], X, Z, 0.006, 0.05, 2, 9);
-    rrect(out, [0, T, 0.062], X, Z, 0.072, 0.04, 0.006, LINE, 0.01);
-    arc(out, [0, T, HD], 0.016, "y", LINE, 0, Math.PI);
-    // Lid, tipped 20° back from upright about the hinge along the back edge.
-    const tilt = (20 * Math.PI) / 180, LH = 0.215;
-    const up = [0, Math.cos(tilt), -Math.sin(tilt)], back = [0, -Math.sin(tilt), -Math.cos(tilt)];
-    const hinge = [0, T, -HD];
-    const lidC = at(hinge, X, up, 0, LH / 2);
-    rrect(out, lidC, X, up, HW, LH / 2, 0.01, LINE, 0.012);
-    rrect(out, at(lidC, X, back, 0, 0.006), X, up, HW, LH / 2, 0.01, LINE, 0.012);
-    rrect(out, at(lidC, X, back, 0, -0.0005), X, up, HW - 0.006, LH / 2 - 0.007, 0.008, LIGHT, 0.01);
-    grid(out, lidC, X, up, HW - 0.012, LH / 2 - 0.014, 16, 10);
-    poly(out, [at(lidC, X, up, -0.016, LH / 2 - 0.007), at(lidC, X, up, -0.016, LH / 2 - 0.016), at(lidC, X, up, 0.016, LH / 2 - 0.016), at(lidC, X, up, 0.016, LH / 2 - 0.007)], false, LIGHT, 0.008);
-    const logo = [];
-    arc(logo, [0, 0, 0], 0.018, "z", LIGHT, 0.6, Math.PI * 2 - 0.25);
-    for (const [a, b] of logo) out.push([...at(at(lidC, X, back, 0, 0.0065), X, up, a, b), LIGHT]);
-    return out;
-  }
-
-  // Token cube: a small glowing box centred at c.
-  const token = (out, [x, y, z], s = 0.06) => box(out, [x - s, y - s, z - s], [x + s, y + s, z + s], LIGHT);
-
-  // LLM: input tokens rise through a stack of transformer layers; between layers each token
-  // attends to itself and every earlier token (causal attention). The next token glows on top.
+  // LLM, as one transformer block: an attention block (a glass cube of stacked heads, one
+  // lit), whose outputs stand as a wall of vector columns, one per token, then feed a
+  // multilayer perceptron, a tangle of neurons and weights, and out as new vectors.
   function llm() {
     const out = [];
-    const xs = [-0.48, -0.24, 0, 0.24, 0.48], LAYERS = 4, GAP = 0.3;
-    for (const x of xs) token(out, [x, -0.2, 0]);
-    for (let l = 0; l < LAYERS; l++) {
-      const y = l * GAP;
-      poly(out, [[-0.62, y, -0.36], [0.62, y, -0.36], [0.62, y, 0.36], [-0.62, y, 0.36]], true);
-      if (l < LAYERS - 1)
-        xs.forEach((xk, k) => xs.slice(0, k + 1).forEach((xj) => seg(out, [xj, y, 0], [xk, y + GAP, 0], SURF)));
+    let seed = 7; // fixed pseudo-random sequence, so the model is the same on every load
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const zs = [-0.3, -0.18, -0.06, 0.06, 0.18, 0.3];
+    // Attention: the cube and its heads.
+    box(out, [-0.92, -0.38, -0.4], [-0.3, 0.38, 0.4], LINE, 0.015);
+    for (let h = 0; h < 5; h++) {
+      const x = -0.83 + h * 0.12;
+      rrect(out, [x, 0, 0], Z, Y, 0.34, 0.33, 0.02, h === 2 ? LIGHT : SURF, h === 2 ? 0.018 : 0.022);
     }
-    for (const x of xs) seg(out, [x, -0.14, 0], [x, 0, 0]);
-    seg(out, [0.48, (LAYERS - 1) * GAP, 0], [0.48, (LAYERS - 1) * GAP + 0.16, 0]);
-    token(out, [0.48, (LAYERS - 1) * GAP + 0.24, 0], 0.08);
-    return out;
-  }
-
-  // MTP (multi-token prediction): a shared trunk of layers feeds several output heads side by
-  // side, each predicting a different future token (t+1 … t+4), chained left to right.
-  function mtp() {
-    const out = [];
-    for (let l = 0; l < 4; l++) {
-      const y = l * 0.12;
-      poly(out, [[-0.36, y, -0.3], [0.36, y, -0.3], [0.36, y, 0.3], [-0.36, y, 0.3]], true);
-    }
-    for (const [x, z] of [[-0.36, -0.3], [0.36, -0.3], [0.36, 0.3], [-0.36, 0.3]]) seg(out, [x, 0, z], [x, 0.36, z]);
-    const heads = [-0.66, -0.22, 0.22, 0.66];
-    heads.forEach((hx) => {
-      seg(out, [0, 0.36, 0], [hx, 0.66, 0], SURF);
-      box(out, [hx - 0.1, 0.66, -0.1], [hx + 0.1, 0.76, 0.1]);
-      seg(out, [hx, 0.76, 0], [hx, 0.9, 0]);
-      token(out, [hx, 0.98, 0], 0.07);
+    // Vector columns: a bracketed column of numbers for each token.
+    const column = (x, z) => {
+      for (let k = 0; k < 16; k++) out.push([x, -0.3 + (k * 0.6) / 15, z, LINE]);
+      for (const y of [-0.34, 0.34]) seg(out, [x, y, z - 0.035], [x, y, z + 0.035], LINE, 0.012);
+    };
+    for (const z of zs) column(-0.1, z);
+    // MLP: neurons scattered through a block, joined to their near neighbours.
+    const nodes = Array.from({ length: 30 }, () => [0.02 + rnd() * 0.5, -0.34 + rnd() * 0.68, -0.3 + rnd() * 0.6]);
+    for (const n of nodes) arc(out, n, 0.018, "z", LIGHT);
+    nodes.forEach((a, k) => {
+      const near = nodes.filter((b) => b !== a).sort((b, c) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) - Math.hypot(c[0] - a[0], c[1] - a[1], c[2] - a[2]));
+      for (let e = 0; e < 3; e++) seg(out, a, near[Math.floor(rnd() * 6)], LINE, 0.018);
     });
-    for (let i = 0; i < heads.length - 1; i++) seg(out, [heads[i] + 0.09, 0.98, 0], [heads[i + 1] - 0.09, 0.98, 0], LIGHT);
+    for (const z of zs) column(0.76, z);
     return out;
   }
 
-  const MODELS = [[ioniq(), 1], [llm(), 1], [monitor(), 0.9], [mtp(), 1], [macbook(), 0.72]].map(([m, size]) => normalise(m, size));
+  const MODELS = [[ioniq(), 1], [llm(), 0.85]].map(([m, size]) => normalise(m, size));
 
   // ---------- Dots ----------
   let W = 0, H = 0;
@@ -357,7 +306,8 @@
 
   // ---------- Behaviour ----------
   let mode = "wander"; // "wander" | "shape" (formed) | "hold" (clicked: stays even if the pointer leaves)
-  let releaseAt = 0; // when the current model scatters
+  let releaseAt = 0; // when a click hold (or a touch model) runs out
+  let hovering = false; // the pointer is a mouse, so the model can stay while it's over it
   let modelIndex = -1;
   let angle = START_ANGLE;
   let pitch = PITCH;
@@ -399,12 +349,13 @@
   let bounds = null;
   let pointer = null;
   const outsideModel = () =>
-    bounds && pointer &&
-    (pointer.x < bounds.x0 - LEAVE_PAD || pointer.x > bounds.x1 + LEAVE_PAD ||
+    bounds && (!pointer ||
+     pointer.x < bounds.x0 - LEAVE_PAD || pointer.x > bounds.x1 + LEAVE_PAD ||
      pointer.y < bounds.y0 - LEAVE_PAD || pointer.y > bounds.y1 + LEAVE_PAD);
 
   function onPointer(e) {
     pointer = { x: e.clientX, y: e.clientY };
+    hovering = e.pointerType === "mouse";
     if (drag) {
       const dx = pointer.x - drag.x, dy = pointer.y - drag.y, now = performance.now();
       angle += dx * DRAG_TURN;
@@ -438,7 +389,9 @@
   canvas.addEventListener("pointercancel", endDrag);
   // Pointer left the window: let the model go (a click-hold still runs its 2 s).
   document.addEventListener("mouseout", (e) => {
-    if (!e.relatedTarget && mode === "shape" && !drag) scatter(300);
+    if (e.relatedTarget) return;
+    pointer = null;
+    if (mode === "shape" && !drag) scatter(300);
   });
   window.addEventListener("click", (e) => {
     if (dragged) { dragged = false; return; }
@@ -455,7 +408,11 @@
     last = now;
     if (mode !== "wander") {
       if (drag) releaseAt = now + HOLD_MS; // turning it by hand keeps it, then 2 s after letting go
-      else if (now >= releaseAt) scatter(REST_MS);
+      else if (now >= releaseAt) {
+        // Time's up: under a mouse it now stays as long as the pointer is over it.
+        if (hovering) mode = "shape";
+        else scatter(REST_MS);
+      }
     }
     const formed = mode !== "wander";
     if (formed && !drag) {
