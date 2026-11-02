@@ -108,6 +108,23 @@ img.avatar { display: block; } /* no inline-image baseline gap, so photo and pla
 .person-email { font-size: 13px; overflow-wrap: anywhere; }
 .person-interests { color: var(--text); opacity: 0.85; font-size: 13px; line-height: 1.45; margin: 4px 0; }
 
+/* ---------- Research ↔ People links ---------- */
+.project, .person { scroll-margin-top: 90px; }
+.project:target h3, .person:target .person-name { color: var(--link); }
+.person:target .avatar { box-shadow: 0 0 0 3px var(--link); }
+.project-members { font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.project-members span { color: var(--muted); }
+.person-interests a { color: inherit; }
+.person-interests a:hover { color: var(--link); }
+
+/* ---------- Contact ---------- */
+.contact-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 40px; align-items: start; margin-top: 12px; }
+.contact-grid h2 { margin-top: 24px; }
+.contact-grid h2:first-child { margin-top: 0; }
+.contact-ko { color: var(--muted); }
+.contact-label { display: inline-block; min-width: 96px; color: var(--muted); }
+.contact-map { width: 100%; aspect-ratio: 4 / 3; border: 0; border-radius: 6px; }
+
 /* ---------- Publications ---------- */
 .pubs { list-style: none; padding: 0; margin: 0; }
 .pubs li { padding: 14px 0 14px 16px; border-left: 3px solid var(--accent-soft); margin-bottom: 10px; }
@@ -131,7 +148,7 @@ img.avatar { display: block; } /* no inline-image baseline gap, so photo and pla
   .nav { display: none; position: absolute; top: 72px; left: 0; right: 0; background: var(--surface); flex-direction: column; border-bottom: 1px solid var(--line); }
   .nav.open { display: flex; }
   .nav a, .nav a:first-child { border-left: 0; padding: 12px 16px; border-top: 1px solid var(--line); }
-  .hero-inner, .project { grid-template-columns: 1fr; gap: 20px; }
+  .hero-inner, .project, .contact-grid { grid-template-columns: 1fr; gap: 20px; }
   .hero { padding: 48px 0 64px; }
   .hero-fade { background: rgba(var(--hero-bg), 0.72); }
   .footer-inner { flex-direction: column; padding: 24px 16px; }

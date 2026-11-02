@@ -19,6 +19,23 @@ window.AISL = {
     address: "",
   },
 
+  // Contact page.
+  contact: {
+    addressEn: ["Room 320, Engineering Building IV", "55, Hanyangdaehak-ro, Sangnok-gu", "Ansan-si, Gyeonggi-do 15588, Republic of Korea"],
+    addressKo: ["(15588) 경기도 안산시 상록구 한양대학로 55", "제4공학관 320호"],
+    phone: "+82 31-400-1025",
+    emails: [
+      { label: "Professor", email: "choye@hanyang.ac.kr" },
+      { label: "Lab", email: "hyu.aisl@gmail.com" },
+    ],
+    links: [
+      { label: "GitHub", text: "hyuaisl", url: "https://github.com/hyuaisl" },
+      { label: "X (Twitter)", text: "@youngeuncho", url: "https://twitter.com/youngeuncho" },
+    ],
+    // Google Maps embed URL (Share → Embed a map → copy the src).
+    map: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3173.9288765676756!2d126.83369377628706!3d37.29681943954763!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x357b6f9b8ce5d76f%3A0x9b3ee606b1f220ce!2sEngineering%20Building%20IV!5e0!3m2!1sen!2skr!4v1711182236351!5m2!1sen!2skr",
+  },
+
   news: [
     { date: "2026-10", text: "AISL website launched." },
   ],
