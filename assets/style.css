@@ -60,7 +60,7 @@ body:not([data-page="index"]) #content { padding-top: 72px; }
 #dots-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 /* As a plain background on other pages it stays out of the way of scrolling and selecting,
    and the page content paints above it. */
-#dots-canvas[data-mode="stars"] { pointer-events: none; }
+#dots-canvas[data-mode="stars"], #dots-canvas[data-mode="model"] { pointer-events: none; }
 .container { position: relative; }
 body[data-page="index"] { overflow: hidden; }
 body.shaped #dots-canvas { cursor: grab; } /* a formed model can be dragged round */

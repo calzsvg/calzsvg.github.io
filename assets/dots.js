@@ -3,7 +3,9 @@
 // turn) that turns slowly like a showroom turntable. It stays while the mouse is over it and
 // scatters back into stars as soon as the mouse leaves; a click keeps it 2 s even if the mouse
 // moves away (on touch screens, with no hover, each model lasts 2 s). With data-mode="stars"
-// on the canvas it's only the wandering stars, as a background for other pages.
+// on the canvas it's only the wandering stars, as a background for other pages; with
+// data-mode="model" one model stays formed and turning behind the page, the car and the LLM
+// taking turns from one visit to the next (and on a "showcase-next" event).
 
 (function () {
   const canvas = document.getElementById("dots-canvas");
@@ -322,6 +324,7 @@
 
   // Pages other than home use the field as a plain starry background: nothing gathers.
   const STARS_ONLY = canvas.dataset.mode === "stars";
+  const SHOWCASE = canvas.dataset.mode === "model";
 
   function gather() {
     if (STARS_ONLY) return;
@@ -394,6 +397,7 @@
     if (mode === "shape" && !drag) scatter(300);
   });
   window.addEventListener("click", (e) => {
+    if (SHOWCASE) return;
     if (dragged) { dragged = false; return; }
     if (mode === "wander" || e.target.closest("#site-header")) return;
     mode = "hold";
@@ -485,5 +489,17 @@
   }
 
   resize();
+  if (SHOWCASE) {
+    // Pick up after the model shown last time (gather() steps on to the next one).
+    try { modelIndex = +localStorage.getItem("showcase-model") || 0; } catch (e) { modelIndex = 0; }
+    const next = () => {
+      gather();
+      try { localStorage.setItem("showcase-model", modelIndex); } catch (e) {}
+      mode = "hold";
+      releaseAt = Infinity;
+    };
+    next();
+    window.addEventListener("showcase-next", next);
+  }
   requestAnimationFrame(frame);
 })();

@@ -14,6 +14,8 @@
       : `<div class="${cls} placeholder" role="img" aria-label="${esc(alt)}"><span>${esc(label ?? alt)}</span></div>`;
 
   const stars = `<canvas id="dots-canvas" data-mode="stars" aria-hidden="true"></canvas>`;
+  // The same field with a model held formed and turning (car and LLM take turns).
+  const showcase = `<canvas id="dots-canvas" data-mode="model" aria-hidden="true"></canvas>`;
   const empty = (what) => `<section><p class="empty">${what} will be listed here soon.</p></section>`;
 
   // ---------- Header ----------
@@ -24,9 +26,9 @@
   ];
   // About sits on its own at the top left.
   const leftNav = [["about", "About", "about.html"]];
-  // The current page's link, clicked again, goes home.
+  // About, clicked again from the About page, goes home.
   const links = (list) =>
-    list.map(([key, label, href]) => `<a href="${key === page ? "index.html" : href}" class="${key === page ? "active" : ""}">${label}</a>`).join("");
+    list.map(([key, label, href]) => `<a href="${key === page && key === "about" ? "index.html" : href}" class="${key === page ? "active" : ""}">${label}</a>`).join("");
 
   const header = document.getElementById("site-header");
   header.innerHTML = `
@@ -49,7 +51,8 @@
       return `<canvas id="dots-canvas" aria-hidden="true"></canvas>`;
     },
 
-    // The other pages sit on the same wandering stars as home, minus the shapes.
+    // The other pages sit on the same dot field as home: plain stars behind About, a held
+    // model behind Research and Publications.
     about() {
       return `${stars}
       <div class="container">
@@ -66,7 +69,7 @@
     },
 
     research() {
-      return `${stars}
+      return `${showcase}
       <div class="container">
         <h1 class="page-title">Research</h1>
         ${D.research.length ? "" : empty("Research")}
@@ -89,7 +92,7 @@
     publications() {
       const years = [...new Set(D.publications.map((p) => p.year))].sort((a, b) => b - a);
       const linkLabels = { pdf: "PDF", code: "Code", project: "Project", bibtex: "BibTeX", video: "Video" };
-      return `${stars}
+      return `${showcase}
       <div class="container">
         <h1 class="page-title">Publications</h1>
         ${years.length ? "" : empty("Publications")}
@@ -128,6 +131,12 @@
   };
 
   main.innerHTML = renders[page]();
+  // On a page with a held model, its own menu link, clicked again, swaps the model instead.
+  if (main.querySelector('#dots-canvas[data-mode="model"]'))
+    header.querySelector(".nav a.active").addEventListener("click", (e) => {
+      e.preventDefault();
+      window.dispatchEvent(new Event("showcase-next"));
+    });
   const pageName = [...nav, ...leftNav].find(([key]) => key === page)[1];
   document.title = D.name ? (page === "index" ? D.name : `${pageName} | ${D.name}`) : pageName;
 })();
