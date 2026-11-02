@@ -22,10 +22,16 @@
     ["publications", "Publications", "publications.html"],
     ["contact", "Contact", "contact.html"],
   ];
-  const navLinks = nav.map(([key, label, href]) => `<a href="${href}" class="${key === page ? "active" : ""}">${label}</a>`).join("");
+  // The left panel has its own, shorter list.
+  const menuNav = [
+    ["index", "Home", "index.html"],
+    ["hoyoung", "hoyoung", "hoyoung.html"],
+    ["skill", "skill", "skill.html"],
+  ];
+  const links = (list) => list.map(([key, label, href]) => `<a href="${href}" class="${key === page ? "active" : ""}">${label}</a>`).join("");
 
-  // Hovering the three-line button (or tapping it) shows the links as plain text below it;
-  // wide screens also keep them top right.
+  // Hovering the three-line button (or tapping it) slides in the left panel; the top-right
+  // links stay on wide screens.
   const header = document.getElementById("site-header");
   header.innerHTML = `
     <div class="header-inner">
@@ -33,9 +39,9 @@
         <button class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="menu-links">
           <span></span><span></span><span></span>
         </button>
-        <nav class="menu-links" id="menu-links">${navLinks}</nav>
+        <nav class="menu-links" id="menu-links">${links(menuNav)}</nav>
       </div>
-      <nav class="nav">${navLinks}</nav>
+      <nav class="nav">${links(nav)}</nav>
     </div>`;
 
   const menu = header.querySelector(".menu");
@@ -69,9 +75,26 @@
 
   // ---------- Pages ----------
   const renders = {
-    // Full-screen dot field; assets/dots.js animates it.
+    // Full-screen dot field (assets/dots.js animates it) with the email quietly in the middle.
     index() {
-      return `<canvas id="dots-canvas" aria-hidden="true"></canvas>`;
+      return `<canvas id="dots-canvas" aria-hidden="true"></canvas>
+      ${D.contact.email ? `<p class="home-email">${esc(D.contact.email)}</p>` : ""}`;
+    },
+
+    hoyoung() {
+      return `
+      <div class="container">
+        <h1 class="page-title">hoyoung</h1>
+        ${empty("Details")}
+      </div>`;
+    },
+
+    skill() {
+      return `
+      <div class="container">
+        <h1 class="page-title">skill</h1>
+        ${empty("Skills")}
+      </div>`;
     },
 
     research() {
@@ -153,6 +176,6 @@
   };
 
   main.innerHTML = renders[page]();
-  const pageName = nav.find(([key]) => key === page)[1];
+  const pageName = [...nav, ...menuNav].find(([key]) => key === page)[1];
   document.title = D.name ? (page === "index" ? D.name : `${pageName} | ${D.name}`) : pageName;
 })();

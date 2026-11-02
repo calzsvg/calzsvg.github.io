@@ -12,7 +12,7 @@ window.SITE = {
   publications: [],
 
   contact: {
-    email: "",
+    email: "hoyoung5128@gmail.com", // also shown faintly in the middle of the home page
     // { label, text, url }, e.g. { label: "GitHub", text: "calzsvg", url: "https://github.com/calzsvg" }
     links: [],
   },

@@ -358,13 +358,21 @@
   let mode = "wander"; // "wander" | "shape" (pointer holds it) | "hold" (clicked: timed)
   let modelIndex = -1;
   let angle = START_ANGLE;
+  let pitch = PITCH;
+  let spin = SPIN; // current turn rate; a fling sets it, then it eases back to SPIN
   let restUntil = 0;
+  // Dragging a formed model turns it by hand: sideways spins it, up and down tips it.
+  const DRAG_TURN = 0.008; // rad per px
+  let drag = null; // { x, y, t, moved } while the pointer is held down on the model
+  let dragged = false; // the last press was a drag, so its click shouldn't hold/scatter
 
   const zone = (x, y, [rx, ry]) => ((x - W / 2) / (W * rx)) ** 2 + ((y - H / 2) / (H * ry)) ** 2;
 
   function gather() {
     modelIndex = (modelIndex + 1) % MODELS.length;
     angle = START_ANGLE;
+    pitch = PITCH;
+    spin = SPIN;
     assign(MODELS[modelIndex]);
     mode = "shape";
   }
@@ -390,6 +398,14 @@
 
   function onPointer(e) {
     pointer = { x: e.clientX, y: e.clientY };
+    if (drag) {
+      const dx = pointer.x - drag.x, dy = pointer.y - drag.y, now = performance.now();
+      angle += dx * DRAG_TURN;
+      pitch = Math.max(-1.3, Math.min(1.3, pitch + dy * DRAG_TURN));
+      spin = (dx * DRAG_TURN) / Math.max(0.008, (now - drag.t) / 1000); // fling speed on release
+      drag = { x: pointer.x, y: pointer.y, t: now, moved: drag.moved + Math.abs(dx) + Math.abs(dy) };
+      return;
+    }
     if (mode === "wander") {
       if (zone(pointer.x, pointer.y, ENTER) < 1 && performance.now() >= restUntil) gather();
     } else if (mode === "shape" && outsideModel()) {
@@ -398,11 +414,27 @@
   }
   window.addEventListener("pointermove", onPointer, { passive: true });
   window.addEventListener("pointerdown", (e) => e.pointerType !== "mouse" && onPointer(e));
+  canvas.addEventListener("pointerdown", (e) => {
+    if (mode === "wander") return;
+    drag = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
+    canvas.setPointerCapture(e.pointerId);
+    document.body.classList.add("dragging");
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    dragged = drag.moved > 6;
+    if (performance.now() - drag.t > 120) spin = SPIN; // held still before letting go: no fling
+    drag = null;
+    document.body.classList.remove("dragging");
+  };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
   // Pointer left the window: let the model go (a click-hold still runs its 2 s).
   document.addEventListener("mouseout", (e) => {
-    if (!e.relatedTarget && mode === "shape") scatter(300);
+    if (!e.relatedTarget && mode === "shape" && !drag) scatter(300);
   });
   window.addEventListener("click", (e) => {
+    if (dragged) { dragged = false; return; }
     if (mode !== "shape" || e.target.closest("#site-header")) return;
     mode = "hold";
     setTimeout(() => scatter(REST_MS), HOLD_MS);
@@ -415,10 +447,14 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     const formed = mode !== "wander";
-    if (formed) angle += SPIN * dt;
+    if (formed && !drag) {
+      angle += spin * dt;
+      spin += (SPIN - spin) * Math.min(1, dt * 1.5);
+    }
+    document.body.classList.toggle("shaped", formed); // lets the page fade the email aside
 
     const model = formed ? MODELS[modelIndex] : null;
-    const ca = Math.cos(angle), sa = Math.sin(angle), cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+    const ca = Math.cos(angle), sa = Math.sin(angle), cp = Math.cos(pitch), sp = Math.sin(pitch);
     const cx = W / 2, cy = H / 2 + H * 0.02, scale = Math.min(W * 0.36, H * 0.48);
     const t = now / 1000;
 
@@ -476,7 +512,7 @@
     }
     ctx.globalAlpha = 1;
     bounds = box;
-    if (mode === "shape" && outsideModel()) scatter(300);
+    if (mode === "shape" && !drag && outsideModel()) scatter(300);
     requestAnimationFrame(frame);
   }
 
