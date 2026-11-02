@@ -170,7 +170,7 @@ window.AISL = {
       email: "seungun0915@hanyang.ac.kr", github: "Fusili23", interests: ["GPU Architecture", "Real-Time Systems"] },
     { name: "오상영", nameEn: "Sangyoung Oh", role: "M.S. Student", group: "M.S. Students", image: "images/people/sangyoung-oh.jpg",
       email: "helloosy@hanyang.ac.kr", github: "hello-osy", interests: ["Drones", "LLM Acceleration", "Real-Time Systems", "Memory & GPU Optimization"] },
-    { name: "Shend Sanaja", role: "M.Eng. Student", group: "M.S. Students", image: "",
+    { name: "Shend Sanaja", role: "M.Eng. Student", group: "M.S. Students", image: "images/people/shend-sanaja.jpg",
       email: "shs8733@hanyang.ac.kr", github: "ShendiS", interests: ["Drones", "Real-Time Systems", "Edge Device Computing"] },
 
     { name: "손혜성", nameEn: "Hyesung Son", role: "", group: "Undergraduate Researchers", image: "",
