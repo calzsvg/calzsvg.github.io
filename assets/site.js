@@ -13,6 +13,7 @@
       ? `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy">`
       : `<div class="${cls} placeholder" role="img" aria-label="${esc(alt)}"><span>${esc(label ?? alt)}</span></div>`;
 
+  const stars = `<canvas id="dots-canvas" data-mode="stars" aria-hidden="true"></canvas>`;
   const empty = (what) => `<section><p class="empty">${what} will be listed here soon.</p></section>`;
 
   // ---------- Header / footer ----------
@@ -75,14 +76,15 @@
 
   // ---------- Pages ----------
   const renders = {
-    // Full-screen dot field (assets/dots.js animates it) with the email quietly in the middle.
+    // Full-screen dot field (assets/dots.js animates it) with the email at the bottom centre.
     index() {
       return `<canvas id="dots-canvas" aria-hidden="true"></canvas>
       ${D.contact.email ? `<p class="home-email">${esc(D.contact.email)}</p>` : ""}`;
     },
 
+    // Intro and skills sit on the same wandering stars as home, minus the shapes.
     hoyoung() {
-      return `
+      return `${stars}
       <div class="container">
         <h1 class="page-title">hoyoung</h1>
         ${empty("Details")}
@@ -90,7 +92,7 @@
     },
 
     skill() {
-      return `
+      return `${stars}
       <div class="container">
         <h1 class="page-title">skill</h1>
         ${empty("Skills")}

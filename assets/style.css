@@ -93,19 +93,23 @@ body:not([data-page="index"]) #content { padding-top: 72px; }
 
 /* ---------- Home: full-screen dots ---------- */
 #dots-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+/* As a plain background on other pages it stays out of the way of scrolling and selecting,
+   and the page content and footer paint above it. */
+#dots-canvas[data-mode="stars"] { pointer-events: none; }
+.container, #site-footer { position: relative; }
 body[data-page="index"] { overflow: hidden; }
-body[data-page="index"] #site-footer { display: none; }
-/* Sits among the stars; steps aside (fades) while the dots hold a model. */
+body[data-page="index"] #site-footer,
+body[data-page="hoyoung"] #site-footer,
+body[data-page="skill"] #site-footer { display: none; } /* nothing but stars around these pages */
+/* Sits quietly among the stars at the bottom centre. */
 .home-email {
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
   margin: 0;
   color: rgba(var(--ink), 0.5);
   font-size: 14px; letter-spacing: 0.12em;
   white-space: nowrap;
   pointer-events: none;
-  transition: opacity 0.6s;
 }
-body.shaped .home-email { opacity: 0; }
 body.shaped #dots-canvas { cursor: grab; } /* a formed model can be dragged round */
 body.dragging #dots-canvas { cursor: grabbing; }
 

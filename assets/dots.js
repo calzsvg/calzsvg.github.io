@@ -2,7 +2,8 @@
 // toward the middle gathers them into a 3D point-cloud model (a Hyundai Ioniq, an LLM, a
 // monitor, multi-token prediction, a MacBook-style laptop, in turn) that turns slowly like a
 // showroom turntable while the pointer stays over it. A click keeps the model for 2 s, then
-// the dots scatter back into stars.
+// the dots scatter back into stars. With data-mode="stars" on the canvas it's only the
+// wandering stars, as a background for other pages.
 
 (function () {
   const canvas = document.getElementById("dots-canvas");
@@ -368,7 +369,11 @@
 
   const zone = (x, y, [rx, ry]) => ((x - W / 2) / (W * rx)) ** 2 + ((y - H / 2) / (H * ry)) ** 2;
 
+  // Pages other than home use the field as a plain starry background: nothing gathers.
+  const STARS_ONLY = canvas.dataset.mode === "stars";
+
   function gather() {
+    if (STARS_ONLY) return;
     modelIndex = (modelIndex + 1) % MODELS.length;
     angle = START_ANGLE;
     pitch = PITCH;
@@ -451,7 +456,7 @@
       angle += spin * dt;
       spin += (SPIN - spin) * Math.min(1, dt * 1.5);
     }
-    document.body.classList.toggle("shaped", formed); // lets the page fade the email aside
+    document.body.classList.toggle("shaped", formed); // the page shows a grab cursor over a model
 
     const model = formed ? MODELS[modelIndex] : null;
     const ca = Math.cos(angle), sa = Math.sin(angle), cp = Math.cos(pitch), sp = Math.sin(pitch);
